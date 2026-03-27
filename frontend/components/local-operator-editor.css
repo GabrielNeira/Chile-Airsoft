@@ -1,0 +1,65 @@
+.loe-shell {
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(8, 13, 18, 0.78);
+  padding: 12px;
+  color: #e8f1f4;
+  font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+}
+
+.loe-eyebrow {
+  margin: 0;
+  color: #c8ff5c;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.loe-title {
+  margin: 4px 0 0;
+  font-size: 22px;
+}
+
+.loe-sub {
+  margin: 4px 0 0;
+  color: #9caab3;
+  font-size: 14px;
+}
+
+.loe-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.loe-grid label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: #b7c6ce;
+}
+
+.loe-grid input {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: #0b1218;
+  color: #e8f1f4;
+  padding: 8px 9px;
+  font-size: 14px;
+}
+
+.loe-span-2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 700px) {
+  .loe-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loe-span-2 {
+    grid-column: auto;
+  }
+}

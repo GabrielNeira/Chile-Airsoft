@@ -1,0 +1,9 @@
+# Local environment secrets
+frontend/.env.local
+
+# Supabase local CLI temp artifacts
+supabase/.temp/
+
+# Dependency/build artifacts
+**/node_modules/
+**/*.tsbuildinfo
