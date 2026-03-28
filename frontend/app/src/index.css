@@ -361,6 +361,32 @@ select {
   color: #e9fff2;
 }
 
+.app-nav-tabs {
+  width: min(100%, 940px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.app-nav-tab {
+  border-radius: 12px;
+  border: 1px solid rgba(200, 231, 208, 0.24);
+  background: rgba(180, 224, 194, 0.08);
+  color: #d6ece0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.app-nav-tab.is-active {
+  border-color: rgba(165, 240, 190, 0.6);
+  background: rgba(91, 146, 98, 0.24);
+  color: #f2fff6;
+}
+
 .id-sync-text {
   margin: 0;
   font-size: 14px;
@@ -467,6 +493,10 @@ select {
 
   .id-action-btn {
     width: 100%;
+  }
+
+  .app-nav-tabs {
+    grid-template-columns: 1fr;
   }
 }
 

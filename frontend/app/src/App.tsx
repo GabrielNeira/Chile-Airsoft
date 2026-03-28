@@ -3,6 +3,7 @@ import OperatorCredentialCard from './components/OperatorCredentialCard';
 import OrganizerScannerView from './components/OrganizerScannerView';
 import OperatorCareerHub from './components/OperatorCareerHub';
 import PlayerLevelMetricsPanel from './components/PlayerLevelMetricsPanel';
+import FieldOperationsConsole from './components/FieldOperationsConsole';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 
@@ -252,6 +253,7 @@ function App() {
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
+  const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations'>('id');
 
   const rutSecretKey = (import.meta.env.VITE_RUT_SECRET_KEY as string | undefined)?.trim();
   const appRedirectUrl = (import.meta.env.VITE_APP_REDIRECT_URL as string | undefined)?.trim()
@@ -1532,254 +1534,287 @@ function App() {
             <button type="button" className="ghost-btn id-action-btn" onClick={handleLogout}>
               Cerrar sesion
             </button>
+            {activeExperienceSection === 'id' ? (
+              <button
+                type="button"
+                className={`ghost-btn id-action-btn ${editMode ? 'is-active' : ''}`}
+                onClick={() => {
+                  setEditMode((prev) => !prev);
+                  setEditError(null);
+                  setEditHint(null);
+                }}
+              >
+                {editMode ? 'Cancelar edicion' : 'Editar mis datos'}
+              </button>
+            ) : null}
+          </div>
+
+          <div className="app-nav-tabs" role="tablist" aria-label="Modo de experiencia">
             <button
               type="button"
-              className={`ghost-btn id-action-btn ${editMode ? 'is-active' : ''}`}
-              onClick={() => {
-                setEditMode((prev) => !prev);
-                setEditError(null);
-                setEditHint(null);
-              }}
+              role="tab"
+              aria-selected={activeExperienceSection === 'id'}
+              className={`app-nav-tab ${activeExperienceSection === 'id' ? 'is-active' : ''}`}
+              onClick={() => setActiveExperienceSection('id')}
             >
-              {editMode ? 'Cancelar edicion' : 'Editar mis datos'}
+              ID Operador
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeExperienceSection === 'operations'}
+              className={`app-nav-tab ${activeExperienceSection === 'operations' ? 'is-active' : ''}`}
+              onClick={() => setActiveExperienceSection('operations')}
+            >
+              Operaciones Cancha
             </button>
           </div>
 
-          {metricsLoading && <p className="page-subtitle id-sync-text">Sincronizando metricas...</p>}
-          {metricsError && <p className="page-subtitle id-sync-text">Error metricas: {metricsError}</p>}
+          {activeExperienceSection === 'id' ? (
+            <>
+              {metricsLoading && <p className="page-subtitle id-sync-text">Sincronizando metricas...</p>}
+              {metricsError && <p className="page-subtitle id-sync-text">Error metricas: {metricsError}</p>}
 
-          <div className="id-card-wrap">
-            {operatorData ? (
-              <OperatorCredentialCard data={operatorData} defaultSkin="multicam" />
-            ) : (
-              <p className="page-subtitle">
-                No se pudo construir la credencial del operador con los datos actuales de perfil.
-              </p>
-            )}
-          </div>
+              <div className="id-card-wrap">
+                {operatorData ? (
+                  <OperatorCredentialCard data={operatorData} defaultSkin="multicam" />
+                ) : (
+                  <p className="page-subtitle">
+                    No se pudo construir la credencial del operador con los datos actuales de perfil.
+                  </p>
+                )}
+              </div>
 
-          {editMode && (
-            <form className="auth-form edit-panel id-edit-panel" onSubmit={handleSaveProfile}>
-              <section className="edit-section" aria-labelledby="edit-required-title">
-                <h3 id="edit-required-title" className="edit-section-title">Datos obligatorios</h3>
-                <p className="edit-section-subtitle">Campos clave para la seguridad y contacto en juego.</p>
+              {editMode && (
+                <form className="auth-form edit-panel id-edit-panel" onSubmit={handleSaveProfile}>
+                  <section className="edit-section" aria-labelledby="edit-required-title">
+                    <h3 id="edit-required-title" className="edit-section-title">Datos obligatorios</h3>
+                    <p className="edit-section-subtitle">Campos clave para la seguridad y contacto en juego.</p>
 
-                <label>
-                  Grupo sanguineo
-                  <select
-                    value={editForm.bloodGroup}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, bloodGroup: e.target.value }))}
-                    required
-                  >
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </label>
-                <label>
-                  Contacto emergencia
-                  <input
-                    value={editForm.emergencyContactName}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactName: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Telefono emergencia 1
-                  <input
-                    value={editForm.emergencyContactPhone}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactPhone: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Contacto emergencia 2 (opcional)
-                  <input
-                    value={editForm.emergencyContactName2}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactName2: e.target.value }))}
-                    placeholder="Opcional"
-                  />
-                </label>
-                <label>
-                  Telefono emergencia 2 (opcional)
-                  <input
-                    value={editForm.emergencyContactPhone2}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactPhone2: e.target.value }))}
-                    placeholder="Opcional"
-                  />
-                </label>
-                <label>
-                  Alergias (opcional)
-                  <input
-                    value={editForm.allergies}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, allergies: e.target.value }))}
-                    placeholder="Ej: Penicilina, AINES, mariscos"
-                  />
-                </label>
-              </section>
+                    <label>
+                      Grupo sanguineo
+                      <select
+                        value={editForm.bloodGroup}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, bloodGroup: e.target.value }))}
+                        required
+                      >
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                      </select>
+                    </label>
+                    <label>
+                      Contacto emergencia
+                      <input
+                        value={editForm.emergencyContactName}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactName: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Telefono emergencia 1
+                      <input
+                        value={editForm.emergencyContactPhone}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactPhone: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Contacto emergencia 2 (opcional)
+                      <input
+                        value={editForm.emergencyContactName2}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactName2: e.target.value }))}
+                        placeholder="Opcional"
+                      />
+                    </label>
+                    <label>
+                      Telefono emergencia 2 (opcional)
+                      <input
+                        value={editForm.emergencyContactPhone2}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, emergencyContactPhone2: e.target.value }))}
+                        placeholder="Opcional"
+                      />
+                    </label>
+                    <label>
+                      Alergias (opcional)
+                      <input
+                        value={editForm.allergies}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, allergies: e.target.value }))}
+                        placeholder="Ej: Penicilina, AINES, mariscos"
+                      />
+                    </label>
+                  </section>
 
-              <section className="edit-section" aria-labelledby="edit-optional-title">
-                <h3 id="edit-optional-title" className="edit-section-title">Datos no obligatorios</h3>
-                <p className="edit-section-subtitle">Puedes completarlos o cambiarlos cuando quieras.</p>
-                <label>
-                  Equipo
-                  <input
-                    value={editForm.team}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, team: e.target.value }))}
-                  />
-                </label>
+                  <section className="edit-section" aria-labelledby="edit-optional-title">
+                    <h3 id="edit-optional-title" className="edit-section-title">Datos no obligatorios</h3>
+                    <p className="edit-section-subtitle">Puedes completarlos o cambiarlos cuando quieras.</p>
+                    <label>
+                      Equipo
+                      <input
+                        value={editForm.team}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, team: e.target.value }))}
+                      />
+                    </label>
 
-                <label>
-                  Rol operador
-                  <select
-                    value={editForm.operatorRole}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, operatorRole: e.target.value }))}
-                  >
-                    <option value="assault">assault</option>
-                    <option value="sniper">sniper</option>
-                    <option value="medic">medic</option>
-                    <option value="support">support</option>
-                    <option value="dmr">dmr</option>
-                    <option value="breacher">breacher</option>
-                    <option value="recon">recon</option>
-                    <option value="commander">commander</option>
-                    <option value="other">other</option>
-                  </select>
-                </label>
-                <label>
-                  Nickname
-                  <input
-                    value={editForm.nickname}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, nickname: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  URL avatar
-                  <input
-                    value={editForm.avatarUrl}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, avatarUrl: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Subir logo del equipo (opcional)
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    onChange={(e) => {
-                      void handleEditCardInput(e.target.files?.[0] ?? null);
+                    <label>
+                      Rol operador
+                      <select
+                        value={editForm.operatorRole}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, operatorRole: e.target.value }))}
+                      >
+                        <option value="assault">assault</option>
+                        <option value="sniper">sniper</option>
+                        <option value="medic">medic</option>
+                        <option value="support">support</option>
+                        <option value="dmr">dmr</option>
+                        <option value="breacher">breacher</option>
+                        <option value="recon">recon</option>
+                        <option value="commander">commander</option>
+                        <option value="other">other</option>
+                      </select>
+                    </label>
+                    <label>
+                      Nickname
+                      <input
+                        value={editForm.nickname}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, nickname: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      URL avatar
+                      <input
+                        value={editForm.avatarUrl}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, avatarUrl: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Subir logo del equipo (opcional)
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        onChange={(e) => {
+                          void handleEditCardInput(e.target.files?.[0] ?? null);
+                        }}
+                      />
+                    </label>
+                  </section>
+
+                  {editHint && <p className="page-subtitle">{editHint}</p>}
+                  {editError && <p className="error-text">{editError}</p>}
+
+                  <button type="submit" className="primary-btn" disabled={editLoading}>
+                    {editLoading ? 'Guardando...' : 'Guardar cambios'}
+                  </button>
+                </form>
+              )}
+
+              <details className="id-secondary-tools">
+                <summary>Herramientas avanzadas</summary>
+
+                <div className="scanner-pane id-secondary-pane">
+                  <OrganizerScannerView
+                    eventId="EVT-LOCAL-001"
+                    onResolveQr={async (rawQr) => {
+                      if (!rawQr) {
+                        throw new Error('Debes ingresar un QR');
+                      }
+                      return {
+                        operatorUserId: 'operator-demo-uid',
+                        nickname: 'GHOST-CL',
+                        role: 'Assault',
+                        bloodGroup: 'O+',
+                        team: 'Santiago Wolves'
+                      };
+                    }}
+                    onCheckin={async () => {
+                      await Promise.resolve();
+                    }}
+                    onChronoValidate={async () => {
+                      await Promise.resolve();
+                    }}
+                    onFairPlayReport={async () => {
+                      await Promise.resolve();
                     }}
                   />
-                </label>
-              </section>
+                </div>
 
-              {editHint && <p className="page-subtitle">{editHint}</p>}
-              {editError && <p className="error-text">{editError}</p>}
+                <section className="page-career id-secondary-pane">
+                  <PlayerLevelMetricsPanel
+                    level={3}
+                    rankTitle="Recruit"
+                    xpTotal={2680}
+                    trustedScore={268}
+                    verifiedMetrics={34}
+                    pendingMetrics={3}
+                    attendance30d={8}
+                    chronoValidated30d={6}
+                    fairPlayGreen30d={9}
+                    fairPlayYellow30d={1}
+                    fairPlayRed30d={0}
+                  />
 
-              <button type="submit" className="primary-btn" disabled={editLoading}>
-                {editLoading ? 'Guardando...' : 'Guardar cambios'}
-              </button>
-            </form>
+                  <OperatorCareerHub
+                    xpTotal={2680}
+                    level={3}
+                    softTokens={1450}
+                    premiumTokens={80}
+                    equippedSkin="Multicam Pro"
+                    equippedAnimation="Pulse Sweep"
+                    missions={[
+                      {
+                        id: 'm-01',
+                        title: 'Check-in Operativo',
+                        description: 'Registra asistencia en 3 eventos oficiales durante la semana.',
+                        progress: 2,
+                        target: 3,
+                        rewards: '300 XP + 120 Soft',
+                        status: 'active'
+                      },
+                      {
+                        id: 'm-02',
+                        title: 'Fair Play Verde',
+                        description: 'Completa 5 partidas sin penalizaciones.',
+                        progress: 5,
+                        target: 5,
+                        rewards: '500 XP + Badge',
+                        status: 'completed'
+                      },
+                      {
+                        id: 'm-03',
+                        title: 'Crono de Precision',
+                        description: 'Valida crono oficial en 4 jornadas consecutivas.',
+                        progress: 1,
+                        target: 4,
+                        rewards: '250 XP + 1 Skin',
+                        status: 'active'
+                      }
+                    ]}
+                    storeItems={[
+                      { id: 's-01', name: 'Skin Woodland Phantom', rarity: 'Rare', price: '550 Soft' },
+                      { id: 's-02', name: 'Animacion Ghost Pulse', rarity: 'Epic', price: '1200 Soft + 20 Premium' },
+                      { id: 's-03', name: 'Badge Captain CL', rarity: 'Legendary', price: '80 Premium', owned: true }
+                    ]}
+                    achievements={[
+                      { id: 'a-01', title: 'Operador Confiable', unlocked: true, progressLabel: '100% completado' },
+                      { id: 'a-02', title: 'Iron Milsim', unlocked: false, progressLabel: '7 de 12 eventos largos' },
+                      { id: 'a-03', title: 'Disciplina de Campo', unlocked: false, progressLabel: '3 de 10 fair play verde' }
+                    ]}
+                  />
+                </section>
+              </details>
+            </>
+          ) : (
+            <FieldOperationsConsole
+              operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin cancha').trim()}
+              operatorCredentialId={operatorData?.credentialId}
+              sessionUserId={sessionUserId}
+            />
           )}
-
-          <details className="id-secondary-tools">
-            <summary>Herramientas avanzadas</summary>
-
-            <div className="scanner-pane id-secondary-pane">
-              <OrganizerScannerView
-                eventId="EVT-LOCAL-001"
-                onResolveQr={async (rawQr) => {
-                  if (!rawQr) {
-                    throw new Error('Debes ingresar un QR');
-                  }
-                  return {
-                    operatorUserId: 'operator-demo-uid',
-                    nickname: 'GHOST-CL',
-                    role: 'Assault',
-                    bloodGroup: 'O+',
-                    team: 'Santiago Wolves'
-                  };
-                }}
-                onCheckin={async () => {
-                  await Promise.resolve();
-                }}
-                onChronoValidate={async () => {
-                  await Promise.resolve();
-                }}
-                onFairPlayReport={async () => {
-                  await Promise.resolve();
-                }}
-              />
-            </div>
-
-            <section className="page-career id-secondary-pane">
-              <PlayerLevelMetricsPanel
-                level={3}
-                rankTitle="Recruit"
-                xpTotal={2680}
-                trustedScore={268}
-                verifiedMetrics={34}
-                pendingMetrics={3}
-                attendance30d={8}
-                chronoValidated30d={6}
-                fairPlayGreen30d={9}
-                fairPlayYellow30d={1}
-                fairPlayRed30d={0}
-              />
-
-              <OperatorCareerHub
-                xpTotal={2680}
-                level={3}
-                softTokens={1450}
-                premiumTokens={80}
-                equippedSkin="Multicam Pro"
-                equippedAnimation="Pulse Sweep"
-                missions={[
-                  {
-                    id: 'm-01',
-                    title: 'Check-in Operativo',
-                    description: 'Registra asistencia en 3 eventos oficiales durante la semana.',
-                    progress: 2,
-                    target: 3,
-                    rewards: '300 XP + 120 Soft',
-                    status: 'active'
-                  },
-                  {
-                    id: 'm-02',
-                    title: 'Fair Play Verde',
-                    description: 'Completa 5 partidas sin penalizaciones.',
-                    progress: 5,
-                    target: 5,
-                    rewards: '500 XP + Badge',
-                    status: 'completed'
-                  },
-                  {
-                    id: 'm-03',
-                    title: 'Crono de Precision',
-                    description: 'Valida crono oficial en 4 jornadas consecutivas.',
-                    progress: 1,
-                    target: 4,
-                    rewards: '250 XP + 1 Skin',
-                    status: 'active'
-                  }
-                ]}
-                storeItems={[
-                  { id: 's-01', name: 'Skin Woodland Phantom', rarity: 'Rare', price: '550 Soft' },
-                  { id: 's-02', name: 'Animacion Ghost Pulse', rarity: 'Epic', price: '1200 Soft + 20 Premium' },
-                  { id: 's-03', name: 'Badge Captain CL', rarity: 'Legendary', price: '80 Premium', owned: true }
-                ]}
-                achievements={[
-                  { id: 'a-01', title: 'Operador Confiable', unlocked: true, progressLabel: '100% completado' },
-                  { id: 'a-02', title: 'Iron Milsim', unlocked: false, progressLabel: '7 de 12 eventos largos' },
-                  { id: 'a-03', title: 'Disciplina de Campo', unlocked: false, progressLabel: '3 de 10 fair play verde' }
-                ]}
-              />
-            </section>
-          </details>
         </div>
       </section>
     </main>

@@ -12,6 +12,30 @@ Ejecuta en este orden para dejar el modelo consistente y normalizado:
 8. db/supabase_auth_rut_legal_onboarding.sql
 9. db/supabase_identity_api_gateway.sql
 10. db/supabase_real_name_immutable.sql
+11. db/supabase_match_ops_metrics.sql
+12. db/supabase_field_operations_access.sql
+13. db/supabase_rls_helpers_hotfix.sql
+14. db/supabase_guest_event_players.sql
+
+Notas del paso 11:
+
+- Crea una cancha de prueba por defecto: `Cancha Demo ChileAirsoft` (Santiago), para que el selector de canchas no quede vacio.
+- Agrega soporte de pausa/reanudacion de partidas (`paused_at`, `total_paused_seconds`).
+- Añade utilitario `is_platform_organizer()` para endurecer acceso a operaciones por rol organizer/super_admin.
+
+Notas del paso 12:
+
+- Añade `can_access_field_operations()` como RPC segura para que el frontend no dependa de leer `user_roles` directo desde el cliente.
+- Considera `organizer`, `super_admin` y usuarios asignados en `field_admins`.
+
+Notas del paso 13:
+
+- Redefine helpers RLS (`is_super_admin`, `is_field_admin`, `is_organizer_for_event`) como `security definer` para que las politicas operativas lean permisos correctamente.
+
+Notas del paso 14:
+
+- Agrega soporte para jugadores invitados por evento y menores de edad sin `operator_profiles`.
+- Crea tablas paralelas para asignaciones, participantes y tarjetas sin historial global.
 
 ## Troubleshooting paso 1
 
@@ -39,6 +63,10 @@ Luego ejecuta nuevamente:
 8. db/supabase_auth_rut_legal_onboarding.sql
 9. db/supabase_identity_api_gateway.sql
 10. db/supabase_real_name_immutable.sql
+11. db/supabase_match_ops_metrics.sql
+12. db/supabase_field_operations_access.sql
+13. db/supabase_rls_helpers_hotfix.sql
+14. db/supabase_guest_event_players.sql
 
 ## Variables frontend
 
@@ -61,6 +89,10 @@ Esta vista entrega campos normalizados para la metrica Operador:
 - total_fair_play_green
 - total_fair_play_yellow
 - total_fair_play_red
+- total_matches_participated
+- total_matches_won
+- total_matches_lost
+- total_field_time_seconds
 
 No se usan payloads JSON para este flujo.
 

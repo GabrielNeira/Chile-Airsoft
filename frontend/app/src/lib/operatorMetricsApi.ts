@@ -28,6 +28,10 @@ export interface OperatorIdMetricsRow {
   total_fair_play_green: number | null;
   total_fair_play_yellow: number | null;
   total_fair_play_red: number | null;
+  total_matches_participated?: number | null;
+  total_matches_won?: number | null;
+  total_matches_lost?: number | null;
+  total_field_time_seconds?: number | null;
   metrics_updated_at: string | null;
 }
 
@@ -39,7 +43,7 @@ export async function getOperatorIdMetricsByNickname(nickname: string): Promise<
   const { data, error } = await supabase
     .from('v_operator_id_metrics')
     .select(
-      'operator_user_id,nickname,real_name,operator_role,team,blood_group,operator_score,fair_play_score,events_experience_score,achievements_score,total_confirmed_events,total_achievements_unlocked,total_fair_play_green,total_fair_play_yellow,total_fair_play_red,metrics_updated_at'
+      'operator_user_id,nickname,real_name,operator_role,team,blood_group,operator_score,fair_play_score,events_experience_score,achievements_score,total_confirmed_events,total_achievements_unlocked,total_fair_play_green,total_fair_play_yellow,total_fair_play_red,total_matches_participated,total_matches_won,total_matches_lost,total_field_time_seconds,metrics_updated_at'
     )
     .eq('nickname', nickname)
     .maybeSingle();
@@ -62,7 +66,7 @@ export async function getOperatorIdMetricsByUserId(userId: string): Promise<Oper
   const { data, error } = await supabase
     .from('v_operator_id_metrics')
     .select(
-      'operator_user_id,nickname,real_name,operator_role,team,blood_group,operator_score,fair_play_score,events_experience_score,achievements_score,total_confirmed_events,total_achievements_unlocked,total_fair_play_green,total_fair_play_yellow,total_fair_play_red,metrics_updated_at,credential_code'
+      'operator_user_id,nickname,real_name,operator_role,team,blood_group,operator_score,fair_play_score,events_experience_score,achievements_score,total_confirmed_events,total_achievements_unlocked,total_fair_play_green,total_fair_play_yellow,total_fair_play_red,total_matches_participated,total_matches_won,total_matches_lost,total_field_time_seconds,metrics_updated_at,credential_code'
     )
     .eq('operator_user_id', userId)
     .maybeSingle();
