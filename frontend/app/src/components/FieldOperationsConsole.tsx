@@ -1619,7 +1619,7 @@ export default function FieldOperationsConsole({
                   checked={allowGuestRegistration}
                   onChange={(event) => setAllowGuestRegistration(event.target.checked)}
                 />
-                Permitir registro como invitado si no existe perfil
+                <span>Permitir registro como invitado si no existe perfil</span>
               </label>
               <label className="ops-toggle-row">
                 <input
@@ -1628,7 +1628,7 @@ export default function FieldOperationsConsole({
                   onChange={(event) => setGuestIsMinor(event.target.checked)}
                   disabled={!allowGuestRegistration}
                 />
-                Marcar como menor de edad
+                <span>Marcar como menor de edad</span>
               </label>
               <button type="button" onClick={handleRegisterPlayer} disabled={!activeEventId || lookupBusy}>
                 {lookupBusy ? 'Registrando...' : 'Registrar en evento'}
@@ -1730,7 +1730,7 @@ export default function FieldOperationsConsole({
                       checked={selectedPlayerActive}
                       onChange={(event) => setSelectedPlayerActive(event.target.checked)}
                     />
-                    Activo en esta jornada
+                    <span>Activo en esta jornada</span>
                   </label>
 
                   <div className="ops-inline-actions">

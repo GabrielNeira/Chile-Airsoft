@@ -74,6 +74,25 @@ interface SupabaseLikeError {
   message?: string;
 }
 
+function BrandLogo() {
+  const [brandSrc, setBrandSrc] = useState('/logo.png?v=2');
+
+  return (
+    <img
+      src={brandSrc}
+      alt="Logo ID Airsoft Chile"
+      className="brand-logo"
+      loading="eager"
+      decoding="async"
+      onError={() => {
+        if (brandSrc !== '/logo.svg?v=2') {
+          setBrandSrc('/logo.svg?v=2');
+        }
+      }}
+    />
+  );
+}
+
 function normalizeOperatorScore(value: unknown): number {
   if (value === null || value === undefined) {
     return 0;
@@ -1195,6 +1214,7 @@ function App() {
         <div className="page-bg" />
         <section className="page-grid page-grid-auth">
           <div className="auth-card">
+            <BrandLogo />
             <h1 className="page-title">ID Airsoft Chile</h1>
             <p className="page-subtitle">Validando sesion...</p>
           </div>
@@ -1307,6 +1327,7 @@ function App() {
         <div className="page-bg" />
         <section className="page-grid page-grid-auth">
           <div className="auth-card">
+            <BrandLogo />
             <h1 className="page-title">ID Airsoft Chile</h1>
             <p className="page-subtitle">Cargando perfil de operador...</p>
           </div>
@@ -1325,12 +1346,12 @@ function App() {
             <p className="page-subtitle">Sesion activa con {sessionUserEmail ?? 'usuario'}.</p>
             <p className="page-subtitle">Completa identidad legal para continuar: RUT, nombre legal y consentimientos.</p>
 
-            <form className="auth-form" onSubmit={handleCompleteIdentityOnboarding}>
-              <label>
+            <form className="auth-form auth-form-registration" onSubmit={handleCompleteIdentityOnboarding}>
+              <label className="form-field is-readonly">
                 Correo electronico
                 <input value={sessionUserEmail ?? email} readOnly />
               </label>
-              <label>
+              <label className="form-field">
                 RUT
                 <input
                   value={identityOnboardingForm.rut}
@@ -1344,7 +1365,7 @@ function App() {
                   required
                 />
               </label>
-              <label>
+              <label className="form-field">
                 Nombre legal (autocompletado API)
                 <input
                   value={identityOnboardingForm.fullName}
@@ -1354,35 +1375,37 @@ function App() {
               </label>
               {lookupLoading && <p className="page-subtitle">Buscando nombre legal desde API chilena...</p>}
 
-              <label>
-                <input
-                  type="checkbox"
-                  checked={identityOnboardingForm.acceptPrivacy}
-                  onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptPrivacy: e.target.checked }))}
-                  required
-                />
-                Acepto el aviso de privacidad (Ley N 19.628).
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={identityOnboardingForm.acceptTerms}
-                  onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptTerms: e.target.checked }))}
-                  required
-                />
-                Acepto terminos y condiciones de uso.
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={identityOnboardingForm.acceptDataProcessing}
-                  onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptDataProcessing: e.target.checked }))}
-                  required
-                />
-                Autorizo tratamiento de datos para autenticacion y operacion del servicio.
-              </label>
+              <div className="consent-stack" role="group" aria-label="Consentimientos obligatorios para completar identidad">
+                <label className="consent-check">
+                  <input
+                    type="checkbox"
+                    checked={identityOnboardingForm.acceptPrivacy}
+                    onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptPrivacy: e.target.checked }))}
+                    required
+                  />
+                  <span className="consent-copy">Acepto el aviso de privacidad (Ley N 19.628).</span>
+                </label>
+                <label className="consent-check">
+                  <input
+                    type="checkbox"
+                    checked={identityOnboardingForm.acceptTerms}
+                    onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptTerms: e.target.checked }))}
+                    required
+                  />
+                  <span className="consent-copy">Acepto terminos y condiciones de uso.</span>
+                </label>
+                <label className="consent-check">
+                  <input
+                    type="checkbox"
+                    checked={identityOnboardingForm.acceptDataProcessing}
+                    onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptDataProcessing: e.target.checked }))}
+                    required
+                  />
+                  <span className="consent-copy">Autorizo tratamiento de datos para autenticacion y operacion del servicio.</span>
+                </label>
+              </div>
 
-              <button type="submit" className="primary-btn" disabled={identityOnboardingLoading}>
+              <button type="submit" className="primary-btn primary-btn-full" disabled={identityOnboardingLoading}>
                 {identityOnboardingLoading ? 'Guardando...' : 'Confirmar identidad'}
               </button>
             </form>
@@ -1409,16 +1432,16 @@ function App() {
             <p className="page-subtitle">Sesion activa con {sessionUserEmail ?? 'usuario'}.</p>
             <p className="page-subtitle">Primer login detectado. Completa ahora los datos operativos restantes.</p>
 
-            <form className="auth-form" onSubmit={handleRegisterProfile}>
-              <label>
+            <form className="auth-form auth-form-registration" onSubmit={handleRegisterProfile}>
+              <label className="form-field is-readonly">
                 RUT (llave unica)
                 <input value={identityRut ?? 'No registrado en identidad'} readOnly />
               </label>
-              <label>
+              <label className="form-field is-readonly">
                 Nombre legal
                 <input value={identityFullName ?? registrationForm.realName ?? 'Sin nombre legal'} readOnly />
               </label>
-              <label>
+              <label className="form-field">
                 Nickname
                 <input
                   value={registrationForm.nickname}
@@ -1426,7 +1449,7 @@ function App() {
                   required
                 />
               </label>
-              <label>
+              <label className="form-field">
                 Grupo sanguineo
                 <select
                   value={registrationForm.bloodGroup}
@@ -1442,7 +1465,7 @@ function App() {
                   <option value="O-">O-</option>
                 </select>
               </label>
-              <label>
+              <label className="form-field">
                 Rol operador
                 <select
                   value={registrationForm.operatorRole}
@@ -1459,14 +1482,14 @@ function App() {
                   <option value="other">other</option>
                 </select>
               </label>
-              <label>
+              <label className="form-field">
                 Equipo
                 <input
                   value={registrationForm.team}
                   onChange={(e) => setRegistrationForm((prev) => ({ ...prev, team: e.target.value }))}
                 />
               </label>
-              <label>
+              <label className="form-field">
                 Contacto emergencia
                 <input
                   value={registrationForm.emergencyContactName}
@@ -1474,7 +1497,7 @@ function App() {
                   required
                 />
               </label>
-              <label>
+              <label className="form-field">
                 Telefono emergencia
                 <input
                   value={registrationForm.emergencyContactPhone}
@@ -1482,7 +1505,7 @@ function App() {
                   required
                 />
               </label>
-              <label>
+              <label className="form-field">
                 URL avatar (opcional)
                 <input
                   value={registrationForm.avatarUrl}
@@ -1490,7 +1513,7 @@ function App() {
                   placeholder="https://..."
                 />
               </label>
-              <label>
+              <label className="form-field file-field">
                 Foto de carnet (obligatoria)
                 <input
                   type="file"
@@ -1503,7 +1526,7 @@ function App() {
                 />
               </label>
 
-              <button type="submit" className="primary-btn" disabled={registrationLoading}>
+              <button type="submit" className="primary-btn primary-btn-full" disabled={registrationLoading}>
                 {registrationLoading ? 'Registrando...' : 'Registrar perfil'}
               </button>
             </form>
