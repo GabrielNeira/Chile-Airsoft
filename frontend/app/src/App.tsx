@@ -275,8 +275,13 @@ function App() {
   const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations'>('id');
 
   const rutSecretKey = (import.meta.env.VITE_RUT_SECRET_KEY as string | undefined)?.trim();
-  const appRedirectUrl = (import.meta.env.VITE_APP_REDIRECT_URL as string | undefined)?.trim()
-    || (typeof window !== 'undefined' ? window.location.origin : undefined);
+  const envRedirectUrlRaw = (import.meta.env.VITE_APP_REDIRECT_URL as string | undefined)?.trim();
+  const runtimeOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const envRedirectUrl = envRedirectUrlRaw
+    && (import.meta.env.DEV || !/localhost|127\.0\.0\.1/i.test(envRedirectUrlRaw))
+    ? envRedirectUrlRaw
+    : undefined;
+  const appRedirectUrl = envRedirectUrl || runtimeOrigin;
 
   function toFriendlyError(error: unknown): string {
     const supabaseError = error as SupabaseLikeError;
