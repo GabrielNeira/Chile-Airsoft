@@ -682,7 +682,7 @@ function App() {
           if (active) {
             const missingIdentity = !resolvedIdentityRut || !resolvedIdentityName;
             setNeedsIdentityOnboarding(missingIdentity);
-            setNeedsRegistration(!missingIdentity);
+            setNeedsRegistration(false);
             setOperatorData(null);
             setMetricsError(null);
             setIdentityOnboardingForm((prev) => ({
@@ -695,6 +695,8 @@ function App() {
               rut: prev.rut || resolvedIdentityRut || '',
               realName: prev.realName || resolvedIdentityName || ''
             }));
+            setProfileLoading(false);
+            setMetricsLoading(false);
           }
           return;
         }
