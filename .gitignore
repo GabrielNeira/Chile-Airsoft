@@ -4,6 +4,9 @@ frontend/.env.local
 # Supabase local CLI temp artifacts
 supabase/.temp/
 
+# Accidental Windows absolute-path folder (should never be committed)
+CUsersGodchileairsoftfrontendapp/
+
 # Dependency/build artifacts
 **/node_modules/
 **/*.tsbuildinfo
