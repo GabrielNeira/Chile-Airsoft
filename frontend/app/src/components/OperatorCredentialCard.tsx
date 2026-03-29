@@ -298,15 +298,15 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
 
                   <div className="oc-ice-item">
                     <p className="oc-ice-title">Contacto 1</p>
-                    <p className="oc-critical-value">{data.iceName || 'Sin dato'}</p>
-                    <p className="oc-critical-sub">Tel: {data.icePhone || 'Sin dato'}</p>
+                    <p className="oc-ice-name">{data.iceName || 'Sin dato'}</p>
+                    <p className="oc-ice-phone">Tel: {data.icePhone || 'Sin dato'}</p>
                   </div>
 
                   {(data.iceName2 || data.icePhone2) ? (
                     <div className="oc-ice-item">
                       <p className="oc-ice-title">Contacto 2</p>
-                      <p className="oc-critical-value">{data.iceName2 || 'Sin dato'}</p>
-                      <p className="oc-critical-sub">Tel: {data.icePhone2 || 'Sin dato'}</p>
+                      <p className="oc-ice-name">{data.iceName2 || 'Sin dato'}</p>
+                      <p className="oc-ice-phone">Tel: {data.icePhone2 || 'Sin dato'}</p>
                     </div>
                   ) : null}
 
