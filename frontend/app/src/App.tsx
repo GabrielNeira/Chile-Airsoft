@@ -1197,11 +1197,6 @@ function App() {
       return;
     }
 
-    if (!idCardFile) {
-      setRegistrationError('Debes adjuntar una foto de carnet para continuar.');
-      return;
-    }
-
     if (!rutSecretKey) {
       setRegistrationError('Falta VITE_RUT_SECRET_KEY en frontend/app/.env');
       return;
@@ -1219,19 +1214,25 @@ function App() {
       setRegistrationLoading(true);
       setRegistrationError(null);
       setLookupError(null);
+      const fallbackIdCardUri = `pending://operator-id-documents/${sessionUserId}/${Date.now()}`;
+      let idCardStorageUri = fallbackIdCardUri;
 
-      const safeName = idCardFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `${sessionUserId}/id-card-${Date.now()}-${safeName}`;
+      if (idCardFile) {
+        const safeName = idCardFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `${sessionUserId}/id-card-${Date.now()}-${safeName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('operator-id-documents')
-        .upload(storagePath, idCardFile, { upsert: false });
+        const { error: uploadError } = await supabase.storage
+          .from('operator-id-documents')
+          .upload(storagePath, idCardFile, { upsert: false });
 
-      if (uploadError) {
-        throw uploadError;
+        if (uploadError) {
+          setAuthMessage(
+            'Perfil creado con foto pendiente: no se pudo subir el carnet en este intento. Puedes actualizarlo luego.'
+          );
+        } else {
+          idCardStorageUri = `storage://operator-id-documents/${storagePath}`;
+        }
       }
-
-      const idCardStorageUri = `storage://operator-id-documents/${storagePath}`;
 
       const { error: rpcError } = await supabase.rpc('register_my_operator_profile', {
         p_nickname: registrationForm.nickname,
@@ -1766,7 +1767,7 @@ function App() {
                 />
               </label>
               <label className="form-field file-field">
-                Foto de carnet (obligatoria)
+                Foto de carnet (opcional)
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -1774,7 +1775,6 @@ function App() {
                   onChange={(e) => {
                     void handleRegistrationCardInput(e.target.files?.[0] ?? null);
                   }}
-                  required
                 />
               </label>
 
