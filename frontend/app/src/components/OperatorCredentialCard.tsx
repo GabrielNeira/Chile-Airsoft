@@ -149,6 +149,11 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
         >
           <div className="oc-card-inner">
             <section className={`oc-face oc-face-front ${isLongTeamName ? 'oc-front-long-team' : ''}`} aria-hidden={isFlipped}>
+              <div className="oc-corner-qr oc-corner-qr-front" aria-label="QR esquinado frontal de la credencial">
+                <img src={data.qrImageUrl} alt="QR frontal de operador" className="oc-corner-qr-image" />
+                <p className="oc-corner-qr-title">QR Tactico</p>
+              </div>
+
               <header className="oc-header">
                 <div>
                   <p className="oc-eyebrow">CHILE AIRSOFT</p>
@@ -215,12 +220,6 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                 </div>
               </div>
 
-              <div className="oc-front-qr-focus" aria-label="QR principal de la credencial">
-                <img src={data.qrImageUrl} alt="QR de operador visible" className="oc-front-qr" />
-                <p className="oc-footer-title">QR SIEMPRE VISIBLE</p>
-                <p className="oc-critical-sub">Escaneo rapido desde celular</p>
-              </div>
-
               <footer className="oc-footer oc-footer-front">
                 <div>
                   <p className="oc-footer-title">Frente de Identificacion</p>
@@ -230,6 +229,11 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
             </section>
 
             <section className="oc-face oc-face-back" aria-hidden={!isFlipped}>
+              <div className="oc-corner-qr oc-corner-qr-back" aria-label="QR esquinado trasero de la credencial">
+                <img src={data.qrImageUrl} alt="QR de validacion operador" className="oc-corner-qr-image" />
+                <p className="oc-corner-qr-title">Validacion</p>
+              </div>
+
               <header className="oc-header">
                 <div>
                   <p className="oc-eyebrow">CHILE AIRSOFT</p>
@@ -308,12 +312,6 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                       Alergias: {data.allergies && data.allergies.trim().length > 0 ? data.allergies : 'Ninguna reportada'}
                     </span>
                   </div>
-                </div>
-
-                <div className="oc-back-qr-wrap">
-                  <img src={data.qrImageUrl} alt="QR de operador" className="oc-back-qr" />
-                  <p className="oc-footer-title">QR de Validacion</p>
-                  <p className="oc-critical-sub">CO {data.credentialId}</p>
                 </div>
               </div>
 
