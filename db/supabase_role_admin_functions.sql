@@ -26,7 +26,7 @@ using (public.is_super_admin());
 revoke all on public.role_admin_audit from authenticated;
 
 create or replace function public.normalize_field_user_role_input(p_role text)
-returns public.field_user_role
+returns text
 language plpgsql
 immutable
 as $$
@@ -35,13 +35,13 @@ declare
 begin
   case v_role
     when 'admin', 'super_admin', 'superadmin', 'platform_admin' then
-      return 'super_admin'::public.field_user_role;
+      return 'super_admin';
     when 'organizer' then
-      return 'organizer'::public.field_user_role;
+      return 'organizer';
     when 'field_admin', 'fieldadmin' then
-      return 'field_admin'::public.field_user_role;
+      return 'field_admin';
     when 'player' then
-      return 'player'::public.field_user_role;
+      return 'player';
     else
       raise exception 'Invalid role value: %. Allowed: admin|super_admin|organizer|field_admin|player', p_role;
   end case;
@@ -77,7 +77,7 @@ set search_path = public, auth
 as $$
 declare
   v_email text := lower(trim(coalesce(p_user_email, '')));
-  v_role public.field_user_role := public.normalize_field_user_role_input(p_role);
+  v_role text := public.normalize_field_user_role_input(p_role);
   v_target_user_id uuid;
   v_has_role boolean := false;
   v_has_user_role boolean := false;
@@ -132,9 +132,9 @@ begin
   if v_has_role then
     execute
       'insert into public.user_roles (user_id, role)
-       values ($1, $2::public.field_user_role)
+       values ($1, $2)
        on conflict (user_id, role) do nothing'
-    using v_target_user_id, v_role::text;
+    using v_target_user_id, v_role;
 
     get diagnostics v_applied = row_count;
   elsif v_has_user_role then
@@ -142,7 +142,7 @@ begin
       'insert into public.user_roles (user_id, user_role)
        values ($1, $2)
        on conflict do nothing'
-    using v_target_user_id, v_role::text;
+    using v_target_user_id, v_role;
 
     get diagnostics v_applied = row_count;
   else
@@ -161,7 +161,7 @@ begin
   values (
     v_target_user_id,
     v_email,
-    v_role::text,
+    v_role,
     'grant',
     p_reason,
     v_executed_by,
@@ -172,7 +172,7 @@ begin
     return jsonb_build_object(
       'status', 'already_exists',
       'email', v_email,
-      'role', v_role::text,
+      'role', v_role,
       'user_id', v_target_user_id
     );
   end if;
@@ -180,7 +180,7 @@ begin
   return jsonb_build_object(
     'status', 'granted',
     'email', v_email,
-    'role', v_role::text,
+    'role', v_role,
     'user_id', v_target_user_id
   );
 end;
@@ -198,7 +198,7 @@ set search_path = public, auth
 as $$
 declare
   v_email text := lower(trim(coalesce(p_user_email, '')));
-  v_role public.field_user_role := public.normalize_field_user_role_input(p_role);
+  v_role text := public.normalize_field_user_role_input(p_role);
   v_target_user_id uuid;
   v_has_role boolean := false;
   v_has_user_role boolean := false;
@@ -255,7 +255,7 @@ begin
     raise exception 'user_roles table does not contain role/user_role column';
   end if;
 
-  if v_role::text = 'super_admin' then
+  if v_role = 'super_admin' then
     if auth.uid() is not null and auth.uid() = v_target_user_id then
       raise exception 'Cannot self-revoke super_admin';
     end if;
@@ -281,7 +281,7 @@ begin
   if v_has_role then
     delete from public.user_roles
     where user_id = v_target_user_id
-      and role::text = v_role::text;
+      and role::text = v_role;
 
     get diagnostics v_applied = row_count;
   else
@@ -289,7 +289,7 @@ begin
       'delete from public.user_roles
        where user_id = $1
          and user_role::text = $2'
-    using v_target_user_id, v_role::text;
+    using v_target_user_id, v_role;
 
     get diagnostics v_applied = row_count;
   end if;
@@ -306,7 +306,7 @@ begin
   values (
     v_target_user_id,
     v_email,
-    v_role::text,
+    v_role,
     'revoke',
     p_reason,
     v_executed_by,
@@ -317,7 +317,7 @@ begin
     return jsonb_build_object(
       'status', 'not_assigned',
       'email', v_email,
-      'role', v_role::text,
+      'role', v_role,
       'user_id', v_target_user_id
     );
   end if;
@@ -325,7 +325,7 @@ begin
   return jsonb_build_object(
     'status', 'revoked',
     'email', v_email,
-    'role', v_role::text,
+    'role', v_role,
     'user_id', v_target_user_id
   );
 end;
