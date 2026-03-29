@@ -205,6 +205,48 @@ function isValidRutValue(rawRut: string): boolean {
   return dv === expected;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+interface ParsedQrPayload {
+  userId?: string;
+  token?: string;
+  nickname?: string;
+}
+
+function parseQrPayload(rawQr: string): ParsedQrPayload {
+  const trimmed = rawQr.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      const userId = String(parsed.userId ?? parsed.operatorUserId ?? parsed.id ?? '').trim();
+      const token = String(parsed.token ?? parsed.credential ?? parsed.uniqueQrToken ?? '').trim();
+      const nickname = String(parsed.nickname ?? parsed.handle ?? '').trim();
+      return {
+        userId: userId || undefined,
+        token: token || undefined,
+        nickname: nickname || undefined
+      };
+    } catch {
+      return { token: trimmed };
+    }
+  }
+
+  const chunks = trimmed.split('|').map((chunk) => chunk.trim()).filter(Boolean);
+  if (chunks.length >= 2) {
+    return {
+      userId: chunks[0] || undefined,
+      nickname: chunks[1] || undefined,
+      token: chunks[2] || undefined
+    };
+  }
+
+  return { token: trimmed };
+}
+
 function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -273,6 +315,122 @@ function App() {
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
   const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations'>('id');
+
+  async function resolveOperatorFromQr(rawQr: string): Promise<{
+    operatorUserId: string;
+    nickname: string;
+    role: string;
+    bloodGroup: string;
+    team?: string;
+  }> {
+    if (!supabase) {
+      throw new Error('Supabase no disponible.');
+    }
+
+    const parsed = parseQrPayload(rawQr);
+    const candidateUserId = parsed.userId?.trim() ?? '';
+
+    if (candidateUserId && UUID_RE.test(candidateUserId)) {
+      const { data, error } = await supabase
+        .from('operator_profiles')
+        .select('user_id,nickname,operator_role,blood_group,team')
+        .eq('user_id', candidateUserId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        return {
+          operatorUserId: data.user_id,
+          nickname: data.nickname,
+          role: data.operator_role,
+          bloodGroup: data.blood_group,
+          team: data.team ?? undefined
+        };
+      }
+    }
+
+    const token = parsed.token?.trim() ?? rawQr.trim();
+    if (token) {
+      if (UUID_RE.test(token)) {
+        const { data, error } = await supabase
+          .from('operator_profiles')
+          .select('user_id,nickname,operator_role,blood_group,team')
+          .eq('unique_qr_token', token)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) {
+          return {
+            operatorUserId: data.user_id,
+            nickname: data.nickname,
+            role: data.operator_role,
+            bloodGroup: data.blood_group,
+            team: data.team ?? undefined
+          };
+        }
+      }
+
+      const { data: credentialRows, error: credentialError } = await supabase
+        .from('operator_profiles')
+        .select('user_id,nickname,operator_role,blood_group,team')
+        .eq('credential_code', token)
+        .limit(1);
+
+      if (credentialError) {
+        const allowMissingColumn = credentialError.message.toLowerCase().includes('credential_code');
+        if (!allowMissingColumn) {
+          throw credentialError;
+        }
+      }
+
+      if (credentialRows && credentialRows[0]) {
+        const operator = credentialRows[0] as {
+          user_id: string;
+          nickname: string;
+          operator_role: string;
+          blood_group: string;
+          team: string | null;
+        };
+
+        return {
+          operatorUserId: operator.user_id,
+          nickname: operator.nickname,
+          role: operator.operator_role,
+          bloodGroup: operator.blood_group,
+          team: operator.team ?? undefined
+        };
+      }
+    }
+
+    if (parsed.nickname) {
+      const { data, error } = await supabase
+        .from('operator_profiles')
+        .select('user_id,nickname,operator_role,blood_group,team')
+        .eq('nickname', parsed.nickname)
+        .limit(1);
+
+      if (error) throw error;
+      if (data && data[0]) {
+        const operator = data[0] as {
+          user_id: string;
+          nickname: string;
+          operator_role: string;
+          blood_group: string;
+          team: string | null;
+        };
+
+        return {
+          operatorUserId: operator.user_id,
+          nickname: operator.nickname,
+          role: operator.operator_role,
+          bloodGroup: operator.blood_group,
+          team: operator.team ?? undefined
+        };
+      }
+    }
+
+    throw new Error('Jugador no registrado con AirsoftID.');
+  }
 
   const rutSecretKey = (import.meta.env.VITE_RUT_SECRET_KEY as string | undefined)?.trim();
   const envRedirectUrlRaw = (import.meta.env.VITE_APP_REDIRECT_URL as string | undefined)?.trim();
@@ -1749,18 +1907,7 @@ function App() {
                 <div className="scanner-pane id-secondary-pane">
                   <OrganizerScannerView
                     eventId="EVT-LOCAL-001"
-                    onResolveQr={async (rawQr) => {
-                      if (!rawQr) {
-                        throw new Error('Debes ingresar un QR');
-                      }
-                      return {
-                        operatorUserId: 'operator-demo-uid',
-                        nickname: 'GHOST-CL',
-                        role: 'Assault',
-                        bloodGroup: 'O+',
-                        team: 'Santiago Wolves'
-                      };
-                    }}
+                    onResolveQr={resolveOperatorFromQr}
                     onCheckin={async () => {
                       await Promise.resolve();
                     }}

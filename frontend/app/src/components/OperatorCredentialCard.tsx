@@ -215,6 +215,12 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                 </div>
               </div>
 
+              <div className="oc-front-qr-focus" aria-label="QR principal de la credencial">
+                <img src={data.qrImageUrl} alt="QR de operador visible" className="oc-front-qr" />
+                <p className="oc-footer-title">QR SIEMPRE VISIBLE</p>
+                <p className="oc-critical-sub">Escaneo rapido desde celular</p>
+              </div>
+
               <footer className="oc-footer oc-footer-front">
                 <div>
                   <p className="oc-footer-title">Frente de Identificacion</p>

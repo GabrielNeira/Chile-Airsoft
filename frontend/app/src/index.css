@@ -464,7 +464,7 @@ select {
   width: min(100%, 1120px);
   display: grid;
   justify-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .id-session-subtitle {
@@ -536,7 +536,9 @@ select {
 }
 
 .id-card-wrap {
-  width: min(100%, 980px);
+  width: min(100%, 760px);
+  position: relative;
+  z-index: 2;
 }
 
 .id-edit-panel {
@@ -643,6 +645,23 @@ select {
 
   .app-nav-tabs {
     grid-template-columns: 1fr;
+  }
+
+  .page-shell-id-focus {
+    padding: 12px 8px 22px;
+  }
+
+  .id-focus-column {
+    gap: 8px;
+  }
+
+  .id-card-wrap {
+    width: 100%;
+  }
+
+  .id-secondary-tools {
+    width: 100%;
+    padding: 8px;
   }
 
   .auth-form-registration .form-field {

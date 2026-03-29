@@ -1,4 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import './organizer-scanner.css';
+
+type BarcodeLike = {
+  rawValue?: string;
+};
+
+type BarcodeDetectorCtor = new (options?: { formats?: string[] }) => {
+  detect: (source: ImageBitmapSource) => Promise<BarcodeLike[]>;
+};
+
+declare global {
+  interface Window {
+    BarcodeDetector?: BarcodeDetectorCtor;
+  }
+}
 
 type FairPlayStatus = 'green' | 'yellow' | 'red';
 
@@ -38,10 +53,22 @@ export function OrganizerScannerView({
   onChronoValidate,
   onFairPlayReport
 }: OrganizerScannerViewProps) {
+  type ScanTone = 'idle' | 'working' | 'ok' | 'error';
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scanLoopRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<InstanceType<BarcodeDetectorCtor> | null>(null);
+  const lastScannedRef = useRef<{ value: string; ts: number } | null>(null);
+  const cameraActiveRef = useRef(false);
+
   const [rawQr, setRawQr] = useState('');
   const [target, setTarget] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('Esperando escaneo');
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [scanTone, setScanTone] = useState<ScanTone>('idle');
 
   const [replicaId, setReplicaId] = useState('');
   const [fps, setFps] = useState('');
@@ -54,14 +81,147 @@ export function OrganizerScannerView({
 
   const canSubmit = useMemo(() => Boolean(target?.operatorUserId), [target]);
 
+  useEffect(() => {
+    void startCamera();
+
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  async function startCamera() {
+    if (cameraActive) {
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Este navegador no soporta acceso a camara.');
+      return;
+    }
+
+    setCameraError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      if ('BarcodeDetector' in window) {
+        detectorRef.current = new (window.BarcodeDetector as BarcodeDetectorCtor)({ formats: ['qr_code'] });
+      } else {
+        setCameraError('Escaneo nativo QR no disponible en este navegador. Usa ingreso manual.');
+      }
+
+      cameraActiveRef.current = true;
+      setCameraActive(true);
+      loopScan();
+    } catch (error) {
+      setCameraError(`No se pudo abrir la camara: ${(error as Error).message}`);
+      cameraActiveRef.current = false;
+      setCameraActive(false);
+    }
+  }
+
+  function stopCamera() {
+    if (scanLoopRef.current) {
+      window.cancelAnimationFrame(scanLoopRef.current);
+      scanLoopRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    detectorRef.current = null;
+    cameraActiveRef.current = false;
+    setCameraActive(false);
+  }
+
+  function loopScan() {
+    const scanTick = async () => {
+      const video = videoRef.current;
+      const detector = detectorRef.current;
+
+      if (!video || !cameraActiveRef.current || !detector) {
+        scanLoopRef.current = window.requestAnimationFrame(scanTick);
+        return;
+      }
+
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        try {
+          const results = await detector.detect(video);
+          const value = results[0]?.rawValue?.trim();
+
+          if (value) {
+            const now = Date.now();
+            const last = lastScannedRef.current;
+            if (!last || last.value !== value || now - last.ts > 1300) {
+              lastScannedRef.current = { value, ts: now };
+              await resolveScannedValue(value);
+            }
+          }
+        } catch {
+          // Detector can fail intermittently depending on light/focus; keep scanning.
+        }
+      }
+
+      scanLoopRef.current = window.requestAnimationFrame(scanTick);
+    };
+
+    scanLoopRef.current = window.requestAnimationFrame(scanTick);
+  }
+
+  async function resolveScannedValue(value: string) {
+    setRawQr(value);
+    setScanTone('working');
+
+    try {
+      setLoading(true);
+      const profile = await onResolveQr(value);
+      setTarget(profile);
+      setStatus(`AirsoftID valido: ${profile.nickname}`);
+      setScanTone('ok');
+      if (navigator.vibrate) {
+        navigator.vibrate(80);
+      }
+    } catch (error) {
+      setTarget(null);
+      setStatus(`AirsoftID no registrado: ${(error as Error).message}`);
+      setScanTone('error');
+      if (navigator.vibrate) {
+        navigator.vibrate([120, 40, 120]);
+      }
+    } finally {
+      setLoading(false);
+      window.setTimeout(() => {
+        setScanTone((prev) => (prev === 'working' ? 'idle' : prev));
+      }, 400);
+    }
+  }
+
   async function handleScanResolve() {
     try {
       setLoading(true);
+      setScanTone('working');
       const profile = await onResolveQr(rawQr.trim());
       setTarget(profile);
-      setStatus(`Operador detectado: ${profile.nickname}`);
+      setStatus(`AirsoftID valido: ${profile.nickname}`);
+      setScanTone('ok');
     } catch (error) {
-      setStatus(`QR invalido o no encontrado: ${(error as Error).message}`);
+      setStatus(`AirsoftID no registrado: ${(error as Error).message}`);
+      setScanTone('error');
     } finally {
       setLoading(false);
     }
@@ -99,11 +259,26 @@ export function OrganizerScannerView({
   }
 
   return (
-    <section style={{ maxWidth: 560, margin: '0 auto', color: '#e8f1f4', fontFamily: 'Rajdhani, Segoe UI, sans-serif' }}>
-      <h2 style={{ marginBottom: 8 }}>Validador In-Game</h2>
-      <p style={{ marginTop: 0, color: '#9caab3' }}>Organizador: escanea QR, valida crono y cierra fair play.</p>
+    <section className="org-scanner-shell">
+      <h2 className="org-scanner-title">Validador In-Game</h2>
+      <p className="org-scanner-subtitle">Escaneo rapido con camara del telefono + validacion AirsoftID.</p>
 
-      <div style={{ border: '1px solid #2d3a45', borderRadius: 12, padding: 12, background: '#0f171e' }}>
+      <div className="org-scanner-camera-card">
+        <div className={`org-scanner-camera-wrap tone-${scanTone}`}>
+          <video ref={videoRef} className="org-scanner-video" playsInline muted autoPlay />
+          <div className="org-scanner-reticle" aria-hidden="true" />
+          <p className="org-scanner-camera-label">{cameraActive ? 'Camara activa' : 'Camara detenida'}</p>
+        </div>
+
+        <div className="org-scanner-camera-actions">
+          <button type="button" onClick={() => void startCamera()} disabled={cameraActive}>Abrir camara</button>
+          <button type="button" onClick={stopCamera} disabled={!cameraActive}>Detener camara</button>
+        </div>
+
+        {cameraError ? <p className="org-scanner-error">{cameraError}</p> : null}
+      </div>
+
+      <div className="org-scanner-manual-card">
         <label htmlFor="rawQr">QR Capturado</label>
         <input
           id="rawQr"
@@ -111,45 +286,45 @@ export function OrganizerScannerView({
           placeholder="pega valor de QR o token"
           value={rawQr}
           onChange={(e) => setRawQr(e.target.value)}
-          style={{ width: '100%', marginTop: 6, marginBottom: 10, padding: 8, borderRadius: 8, border: '1px solid #364654', background: '#0b1116', color: '#e8f1f4' }}
+          className="org-scanner-input"
         />
         <button disabled={loading || !rawQr.trim()} onClick={handleScanResolve}>Resolver QR</button>
       </div>
 
-      <p style={{ color: '#c8ff5c' }}>{status}</p>
+      <p className={`org-scanner-status tone-${scanTone}`}>{status}</p>
 
       {target && (
-        <div style={{ border: '1px solid #2d3a45', borderRadius: 12, padding: 12, background: '#0f171e', marginTop: 12 }}>
-          <p style={{ margin: 0, fontWeight: 700 }}>{target.nickname}</p>
-          <p style={{ margin: '4px 0', color: '#9caab3' }}>{target.role} | Sangre {target.bloodGroup}</p>
-          <p style={{ margin: 0, color: '#9caab3' }}>{target.team || 'Sin team'}</p>
+        <div className="org-scanner-target-card">
+          <p className="org-target-name">{target.nickname}</p>
+          <p className="org-target-meta">{target.role} | Sangre {target.bloodGroup}</p>
+          <p className="org-target-meta">{target.team || 'Sin team'}</p>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <div className="org-target-actions">
             <button disabled={!canSubmit} onClick={handleCheckin}>Marcar Asistencia</button>
           </div>
 
-          <hr style={{ margin: '14px 0', borderColor: '#2d3a45' }} />
+          <hr />
 
-          <h3 style={{ margin: '0 0 8px' }}>Validar Crono</h3>
-          <input placeholder="Replica ID" value={replicaId} onChange={(e) => setReplicaId(e.target.value)} />
-          <input placeholder="FPS" value={fps} onChange={(e) => setFps(e.target.value)} />
-          <input placeholder="Joules" value={joules} onChange={(e) => setJoules(e.target.value)} />
-          <input placeholder="BB Weight (g)" value={bbWeightG} onChange={(e) => setBbWeightG(e.target.value)} />
-          <input placeholder="Nota" value={chronoNote} onChange={(e) => setChronoNote(e.target.value)} />
-          <div style={{ marginTop: 8 }}>
+          <h3>Validar Crono</h3>
+          <input className="org-scanner-input" placeholder="Replica ID" value={replicaId} onChange={(e) => setReplicaId(e.target.value)} />
+          <input className="org-scanner-input" placeholder="FPS" value={fps} onChange={(e) => setFps(e.target.value)} />
+          <input className="org-scanner-input" placeholder="Joules" value={joules} onChange={(e) => setJoules(e.target.value)} />
+          <input className="org-scanner-input" placeholder="BB Weight (g)" value={bbWeightG} onChange={(e) => setBbWeightG(e.target.value)} />
+          <input className="org-scanner-input" placeholder="Nota" value={chronoNote} onChange={(e) => setChronoNote(e.target.value)} />
+          <div className="org-target-actions">
             <button disabled={!canSubmit || !replicaId || !fps || !joules || !bbWeightG} onClick={handleChrono}>Guardar Crono</button>
           </div>
 
-          <hr style={{ margin: '14px 0', borderColor: '#2d3a45' }} />
+          <hr />
 
-          <h3 style={{ margin: '0 0 8px' }}>Reporte Fair Play</h3>
-          <select value={fairPlayStatus} onChange={(e) => setFairPlayStatus(e.target.value as FairPlayStatus)}>
+          <h3>Reporte Fair Play</h3>
+          <select className="org-scanner-input" value={fairPlayStatus} onChange={(e) => setFairPlayStatus(e.target.value as FairPlayStatus)}>
             <option value="green">Verde</option>
             <option value="yellow">Amarillo</option>
             <option value="red">Rojo</option>
           </select>
-          <input placeholder="Motivo" value={fairPlayReason} onChange={(e) => setFairPlayReason(e.target.value)} />
-          <div style={{ marginTop: 8 }}>
+          <input className="org-scanner-input" placeholder="Motivo" value={fairPlayReason} onChange={(e) => setFairPlayReason(e.target.value)} />
+          <div className="org-target-actions">
             <button disabled={!canSubmit} onClick={handleFairPlay}>Emitir Reporte</button>
           </div>
         </div>

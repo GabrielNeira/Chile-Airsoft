@@ -145,6 +145,22 @@ interface GuestPlayerRow {
   note: string | null;
 }
 
+interface PaidRegistrationRow {
+  id: string;
+  event_id: string;
+  payment_order_id: string;
+  operator_user_id: string | null;
+  guest_nickname: string | null;
+  guest_rut_normalized: string | null;
+  guest_blood_group: string | null;
+  is_minor: boolean;
+  registration_status: 'paid' | 'present' | 'assigned' | 'cancelled' | 'refunded';
+  team_slot: TeamSlot | null;
+  checked_in_at: string | null;
+  assigned_at: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
 interface QrPayload {
   userId?: string;
   nickname?: string;
@@ -302,6 +318,7 @@ export default function FieldOperationsConsole({
   const [players, setPlayers] = useState<RosterPlayer[]>([]);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
+  const [paidRegistrations, setPaidRegistrations] = useState<PaidRegistrationRow[]>([]);
 
   const [matchLabel, setMatchLabel] = useState('Ronda principal');
   const [winnerTeam, setWinnerTeam] = useState<TeamSlot>('alpha');
@@ -363,6 +380,16 @@ export default function FieldOperationsConsole({
       .reduce((acc, match) => acc + Math.max(0, match.duration_seconds ?? 0), 0);
   }, [matches]);
 
+  const paidPendingCount = useMemo(
+    () => paidRegistrations.filter((registration) => registration.registration_status === 'paid').length,
+    [paidRegistrations]
+  );
+
+  const paidPresentCount = useMemo(
+    () => paidRegistrations.filter((registration) => registration.registration_status === 'present').length,
+    [paidRegistrations]
+  );
+
   const elapsedLabel = useMemo(() => {
     if (!runningMatch?.starts_at) {
       return '00:00';
@@ -400,6 +427,7 @@ export default function FieldOperationsConsole({
       setPlayers([]);
       setMatches([]);
       setCards([]);
+      setPaidRegistrations([]);
       return;
     }
 
@@ -554,7 +582,7 @@ export default function FieldOperationsConsole({
 
     setBusy(true);
     try {
-      const [checkinsRes, guestPlayersRes, assignmentsRes, guestAssignmentsRes, matchesRes, cardsRes, guestCardsRes] = await Promise.all([
+      const [checkinsRes, guestPlayersRes, assignmentsRes, guestAssignmentsRes, matchesRes, cardsRes, guestCardsRes, paidRegistrationsRes] = await Promise.all([
         supabase.from('event_checkins').select('operator_user_id').eq('event_id', eventId),
         supabase
           .from('event_guest_players')
@@ -585,7 +613,13 @@ export default function FieldOperationsConsole({
           .select('id,guest_player_id,card_type,detail,issued_at')
           .eq('event_id', eventId)
           .order('issued_at', { ascending: false })
-          .limit(400)
+          .limit(400),
+        supabase
+          .from('event_paid_registrations')
+          .select('id,event_id,payment_order_id,operator_user_id,guest_nickname,guest_rut_normalized,guest_blood_group,is_minor,registration_status,team_slot,checked_in_at,assigned_at,metadata')
+          .eq('event_id', eventId)
+          .order('created_at', { ascending: false })
+          .limit(200)
       ]);
 
       if (checkinsRes.error) throw checkinsRes.error;
@@ -595,6 +629,7 @@ export default function FieldOperationsConsole({
       if (matchesRes.error) throw matchesRes.error;
       if (cardsRes.error) throw cardsRes.error;
       if (guestCardsRes.error) throw guestCardsRes.error;
+      if (paidRegistrationsRes.error) throw paidRegistrationsRes.error;
 
       const checkins = (checkinsRes.data as Array<{ operator_user_id: string }> | null) ?? [];
       const guestPlayers = (guestPlayersRes.data as GuestPlayerRow[] | null) ?? [];
@@ -603,6 +638,7 @@ export default function FieldOperationsConsole({
       const nextMatches = (matchesRes.data as MatchRow[] | null) ?? [];
       const operatorCards = (cardsRes.data as OperatorCardRow[] | null) ?? [];
       const guestCards = (guestCardsRes.data as GuestCardRow[] | null) ?? [];
+      const paidRows = (paidRegistrationsRes.data as PaidRegistrationRow[] | null) ?? [];
 
       const operatorIds = checkins.map((row) => row.operator_user_id);
 
@@ -610,6 +646,7 @@ export default function FieldOperationsConsole({
         setPlayers([]);
         setMatches(nextMatches);
         setCards([]);
+        setPaidRegistrations(paidRows);
         setMissingTables(false);
         return;
       }
@@ -713,6 +750,7 @@ export default function FieldOperationsConsole({
       setPlayers(roster.sort((a, b) => a.nickname.localeCompare(b.nickname)));
       setMatches(nextMatches);
       setCards(mergedCards);
+      setPaidRegistrations(paidRows);
       setMissingTables(false);
     } catch (error) {
       const message = mapError(error);
@@ -722,6 +760,7 @@ export default function FieldOperationsConsole({
         || message.includes('schema cache')
         || message.includes('paused_at')
         || message.includes('event_guest_')
+        || message.includes('event_paid_registrations')
       ) {
         setMissingTables(true);
       }
@@ -855,6 +894,226 @@ export default function FieldOperationsConsole({
       teamHint: insertedGuest.team_hint ?? undefined,
       isMinor: insertedGuest.is_minor
     };
+  }
+
+  async function resolveGuestFromPaidRegistration(registration: PaidRegistrationRow): Promise<GuestLookup> {
+    if (!supabase || !activeEventId) {
+      throw new Error('Debes seleccionar un evento antes de registrar invitados de pago.');
+    }
+
+    const normalizedRut = normalizeRut(registration.guest_rut_normalized ?? '');
+    const fallbackNickname = registration.guest_nickname?.trim() || 'Invitado pagado';
+
+    if (normalizedRut) {
+      const { data, error } = await supabase
+        .from('event_guest_players')
+        .select('id,nickname,blood_group,team_hint,is_minor')
+        .eq('event_id', activeEventId)
+        .eq('rut', normalizedRut)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        return {
+          kind: 'guest',
+          guestPlayerId: data.id,
+          nickname: data.nickname,
+          bloodGroup: data.blood_group?.trim() || 'N/D',
+          teamHint: data.team_hint ?? undefined,
+          isMinor: data.is_minor
+        };
+      }
+    }
+
+    const { data: nicknameRows, error: nicknameError } = await supabase
+      .from('event_guest_players')
+      .select('id,nickname,blood_group,team_hint,is_minor')
+      .eq('event_id', activeEventId)
+      .eq('nickname', fallbackNickname)
+      .limit(1);
+
+    if (nicknameError) throw nicknameError;
+
+    if (nicknameRows && nicknameRows[0]) {
+      const guest = nicknameRows[0] as {
+        id: string;
+        nickname: string;
+        blood_group: string | null;
+        team_hint: string | null;
+        is_minor: boolean;
+      };
+
+      return {
+        kind: 'guest',
+        guestPlayerId: guest.id,
+        nickname: guest.nickname,
+        bloodGroup: guest.blood_group?.trim() || 'N/D',
+        teamHint: guest.team_hint ?? undefined,
+        isMinor: guest.is_minor
+      };
+    }
+
+    const { data: insertedGuest, error: insertError } = await supabase
+      .from('event_guest_players')
+      .insert({
+        event_id: activeEventId,
+        nickname: fallbackNickname,
+        rut: normalizedRut || null,
+        blood_group: registration.guest_blood_group || null,
+        is_minor: registration.is_minor,
+        note: 'Jugador invitado creado desde pago validado.',
+        registered_by: sessionUserId
+      })
+      .select('id,nickname,blood_group,team_hint,is_minor')
+      .single();
+
+    if (insertError) throw insertError;
+
+    return {
+      kind: 'guest',
+      guestPlayerId: insertedGuest.id,
+      nickname: insertedGuest.nickname,
+      bloodGroup: insertedGuest.blood_group?.trim() || 'N/D',
+      teamHint: insertedGuest.team_hint ?? undefined,
+      isMinor: insertedGuest.is_minor
+    };
+  }
+
+  async function ensurePaidRegistrationPresent(registration: PaidRegistrationRow): Promise<{ kind: PlayerKind; operatorUserId?: string; guestPlayerId?: string }> {
+    if (!supabase || !activeEventId) {
+      throw new Error('Debes seleccionar un evento activo.');
+    }
+
+    if (registration.operator_user_id) {
+      const { error: checkinError } = await supabase
+        .from('event_checkins')
+        .upsert(
+          {
+            event_id: activeEventId,
+            operator_user_id: registration.operator_user_id,
+            checked_in_by: sessionUserId,
+            checkin_source: 'payment_webhook'
+          },
+          { onConflict: 'event_id,operator_user_id' }
+        );
+
+      if (checkinError) throw checkinError;
+
+      if (registration.registration_status === 'paid') {
+        const { error: updateError } = await supabase
+          .from('event_paid_registrations')
+          .update({
+            registration_status: 'present',
+            checked_in_at: new Date().toISOString()
+          })
+          .eq('id', registration.id);
+
+        if (updateError) throw updateError;
+      }
+
+      return { kind: 'operator', operatorUserId: registration.operator_user_id };
+    }
+
+    const guest = await resolveGuestFromPaidRegistration(registration);
+    if (registration.registration_status === 'paid') {
+      const { error: updateError } = await supabase
+        .from('event_paid_registrations')
+        .update({
+          registration_status: 'present',
+          checked_in_at: new Date().toISOString(),
+          metadata: {
+            ...(registration.metadata ?? {}),
+            guest_player_id: guest.guestPlayerId
+          }
+        })
+        .eq('id', registration.id);
+
+      if (updateError) throw updateError;
+    }
+
+    return { kind: 'guest', guestPlayerId: guest.guestPlayerId };
+  }
+
+  async function handleMarkPaidPresent(registration: PaidRegistrationRow) {
+    if (!activeEventId || !supabase) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await ensurePaidRegistrationPresent(registration);
+      setStatusMessage('Inscripcion pagada pasada a presente.');
+      await loadEventData(activeEventId);
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAssignPaidTeam(registration: PaidRegistrationRow, teamSlot: TeamSlot) {
+    if (!activeEventId || !supabase) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const resolved = await ensurePaidRegistrationPresent(registration);
+      const assignedAt = new Date().toISOString();
+
+      if (resolved.kind === 'operator' && resolved.operatorUserId) {
+        const { error: teamError } = await supabase
+          .from('event_team_assignments')
+          .upsert(
+            {
+              event_id: activeEventId,
+              operator_user_id: resolved.operatorUserId,
+              team_slot: teamSlot,
+              assigned_by: sessionUserId
+            },
+            { onConflict: 'event_id,operator_user_id' }
+          );
+
+        if (teamError) throw teamError;
+      }
+
+      if (resolved.kind === 'guest' && resolved.guestPlayerId) {
+        const { error: teamError } = await supabase
+          .from('event_guest_team_assignments')
+          .upsert(
+            {
+              event_id: activeEventId,
+              guest_player_id: resolved.guestPlayerId,
+              team_slot: teamSlot,
+              assigned_by: sessionUserId,
+              assignment_note: 'Asignado desde inscripcion pagada.'
+            },
+            { onConflict: 'event_id,guest_player_id' }
+          );
+
+        if (teamError) throw teamError;
+      }
+
+      const { error: updateError } = await supabase
+        .from('event_paid_registrations')
+        .update({
+          registration_status: 'assigned',
+          team_slot: teamSlot,
+          assigned_at: assignedAt,
+          checked_in_at: registration.checked_in_at ?? assignedAt
+        })
+        .eq('id', registration.id);
+
+      if (updateError) throw updateError;
+
+      setStatusMessage(`Inscripcion pagada asignada a ${TEAM_LABEL[teamSlot]}.`);
+      await loadEventData(activeEventId);
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function resolvePlayerLookup(): Promise<PlayerLookup> {
@@ -1639,9 +1898,65 @@ export default function FieldOperationsConsole({
               <h4>Resumen rapido</h4>
               <p className="ops-muted">Evento: {activeEvent?.title ?? 'Ninguno'}</p>
               <p className="ops-muted">Jugadores registrados: {players.length}</p>
+              <p className="ops-muted">Pagados pendientes de ingreso: {paidPendingCount}</p>
+              <p className="ops-muted">Pagados presentes sin equipo: {paidPresentCount}</p>
               <p className="ops-muted">Alpha: {teamBuckets.alpha.length}</p>
               <p className="ops-muted">Bravo: {teamBuckets.bravo.length}</p>
               <p className="ops-muted">Reserva: {teamBuckets.reserve.length}</p>
+            </article>
+          </section>
+
+          <section className="ops-grid ops-grid-bottom">
+            <article className="ops-card">
+              <h4>Pipeline pago a cancha</h4>
+              <p className="ops-muted">Flujo operativo: pagado - presente - equipo.</p>
+              <ul className="ops-list">
+                {paidRegistrations.length === 0 ? <li>No hay inscripciones de pago para este evento.</li> : null}
+                {paidRegistrations.map((registration) => {
+                  const displayName = registration.operator_user_id
+                    ? players.find((player) => player.operatorUserId === registration.operator_user_id)?.nickname || `Operador ${registration.operator_user_id.slice(0, 8)}`
+                    : registration.guest_nickname || registration.guest_rut_normalized || 'Invitado pagado';
+
+                  return (
+                    <li key={registration.id} className="ops-paid-row">
+                      <span>
+                        <strong>{displayName}</strong>
+                        <small>Estado: {registration.registration_status.toUpperCase()}</small>
+                      </span>
+                      <div className="ops-inline-actions">
+                        <button
+                          type="button"
+                          disabled={busy || registration.registration_status === 'assigned'}
+                          onClick={() => void handleMarkPaidPresent(registration)}
+                        >
+                          Marcar presente
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || registration.registration_status === 'assigned'}
+                          onClick={() => void handleAssignPaidTeam(registration, 'alpha')}
+                        >
+                          A Alpha
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || registration.registration_status === 'assigned'}
+                          onClick={() => void handleAssignPaidTeam(registration, 'bravo')}
+                        >
+                          A Bravo
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || registration.registration_status === 'assigned'}
+                          onClick={() => void handleAssignPaidTeam(registration, 'reserve')}
+                        >
+                          A Reserva
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </article>
           </section>
         </section>
