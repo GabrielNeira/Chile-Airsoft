@@ -149,6 +149,8 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
         >
           <div className="oc-card-inner">
             <section className={`oc-face oc-face-front ${isLongTeamName ? 'oc-front-long-team' : ''}`} aria-hidden={isFlipped}>
+              <img src="/logo.svg" alt="" aria-hidden="true" className="oc-brand-mark oc-brand-mark-front" />
+
               <div className="oc-corner-qr oc-corner-qr-front" aria-label="QR esquinado frontal de la credencial">
                 <img src={data.qrImageUrl} alt="QR frontal de operador" className="oc-corner-qr-image" />
                 <p className="oc-corner-qr-title">QR Tactico</p>
@@ -229,6 +231,8 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
             </section>
 
             <section className="oc-face oc-face-back" aria-hidden={!isFlipped}>
+              <img src="/logo.svg" alt="" aria-hidden="true" className="oc-brand-mark oc-brand-mark-back" />
+
               <div className="oc-corner-qr oc-corner-qr-back" aria-label="QR esquinado trasero de la credencial">
                 <img src={data.qrImageUrl} alt="QR de validacion operador" className="oc-corner-qr-image" />
                 <p className="oc-corner-qr-title">Validacion</p>
