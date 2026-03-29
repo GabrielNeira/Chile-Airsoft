@@ -79,8 +79,9 @@ declare
   v_email text := lower(trim(coalesce(p_user_email, '')));
   v_role text := public.normalize_field_user_role_input(p_role);
   v_target_user_id uuid;
-  v_has_role boolean := false;
-  v_has_user_role boolean := false;
+  v_role_column text;
+  v_role_type text;
+  v_known_columns text;
   v_applied integer := 0;
   v_executed_by uuid := auth.uid();
   v_executed_by_email text := null;
@@ -113,41 +114,51 @@ begin
     v_executed_by_email := current_user;
   end if;
 
-  select exists (
-    select 1
+  select
+    c.column_name,
+    case
+      when c.udt_schema in ('pg_catalog', 'information_schema') then c.udt_name
+      else format('%I.%I', c.udt_schema, c.udt_name)
+    end as role_type
+  into v_role_column, v_role_type
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = 'user_roles'
+    and c.column_name not in ('id', 'user_id', 'created_at', 'updated_at')
+    and (
+      c.column_name in ('role', 'user_role', 'field_user_role', 'app_role')
+      or c.column_name ilike '%role%'
+    )
+  order by case
+    when c.column_name = 'role' then 1
+    when c.column_name = 'user_role' then 2
+    when c.column_name = 'field_user_role' then 3
+    when c.column_name = 'app_role' then 4
+    else 10
+  end,
+  c.ordinal_position
+  limit 1;
+
+  if v_role_column is null then
+    select string_agg(c.column_name, ', ' order by c.ordinal_position)
+    into v_known_columns
     from information_schema.columns c
     where c.table_schema = 'public'
-      and c.table_name = 'user_roles'
-      and c.column_name = 'role'
-  ) into v_has_role;
+      and c.table_name = 'user_roles';
 
-  select exists (
-    select 1
-    from information_schema.columns c
-    where c.table_schema = 'public'
-      and c.table_name = 'user_roles'
-      and c.column_name = 'user_role'
-  ) into v_has_user_role;
-
-  if v_has_role then
-    execute
-      'insert into public.user_roles (user_id, role)
-       values ($1, $2)
-       on conflict (user_id, role) do nothing'
-    using v_target_user_id, v_role;
-
-    get diagnostics v_applied = row_count;
-  elsif v_has_user_role then
-    execute
-      'insert into public.user_roles (user_id, user_role)
-       values ($1, $2)
-       on conflict do nothing'
-    using v_target_user_id, v_role;
-
-    get diagnostics v_applied = row_count;
-  else
-    raise exception 'user_roles table does not contain role/user_role column';
+    raise exception 'user_roles table does not contain a supported role column. Columns: %', coalesce(v_known_columns, '(none)');
   end if;
+
+  execute format(
+    'insert into public.user_roles (user_id, %I)
+     values ($1, $2::%s)
+     on conflict do nothing',
+    v_role_column,
+    v_role_type
+  )
+  using v_target_user_id, v_role;
+
+  get diagnostics v_applied = row_count;
 
   insert into public.role_admin_audit (
     target_user_id,
@@ -200,8 +211,8 @@ declare
   v_email text := lower(trim(coalesce(p_user_email, '')));
   v_role text := public.normalize_field_user_role_input(p_role);
   v_target_user_id uuid;
-  v_has_role boolean := false;
-  v_has_user_role boolean := false;
+  v_role_column text;
+  v_known_columns text;
   v_applied integer := 0;
   v_super_admin_count integer := 0;
   v_executed_by uuid := auth.uid();
@@ -235,24 +246,34 @@ begin
     v_executed_by_email := current_user;
   end if;
 
-  select exists (
-    select 1
+  select c.column_name
+  into v_role_column
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = 'user_roles'
+    and c.column_name not in ('id', 'user_id', 'created_at', 'updated_at')
+    and (
+      c.column_name in ('role', 'user_role', 'field_user_role', 'app_role')
+      or c.column_name ilike '%role%'
+    )
+  order by case
+    when c.column_name = 'role' then 1
+    when c.column_name = 'user_role' then 2
+    when c.column_name = 'field_user_role' then 3
+    when c.column_name = 'app_role' then 4
+    else 10
+  end,
+  c.ordinal_position
+  limit 1;
+
+  if v_role_column is null then
+    select string_agg(c.column_name, ', ' order by c.ordinal_position)
+    into v_known_columns
     from information_schema.columns c
     where c.table_schema = 'public'
-      and c.table_name = 'user_roles'
-      and c.column_name = 'role'
-  ) into v_has_role;
+      and c.table_name = 'user_roles';
 
-  select exists (
-    select 1
-    from information_schema.columns c
-    where c.table_schema = 'public'
-      and c.table_name = 'user_roles'
-      and c.column_name = 'user_role'
-  ) into v_has_user_role;
-
-  if not v_has_role and not v_has_user_role then
-    raise exception 'user_roles table does not contain role/user_role column';
+    raise exception 'user_roles table does not contain a supported role column. Columns: %', coalesce(v_known_columns, '(none)');
   end if;
 
   if v_role = 'super_admin' then
@@ -260,39 +281,28 @@ begin
       raise exception 'Cannot self-revoke super_admin';
     end if;
 
-    if v_has_role then
-      select count(*)
-      into v_super_admin_count
-      from public.user_roles ur
-      where ur.role::text = 'super_admin';
-    else
-      execute
-        'select count(*)
-         from public.user_roles ur
-         where ur.user_role::text = ''super_admin'''
-      into v_super_admin_count;
-    end if;
+    execute format(
+      'select count(*)
+       from public.user_roles ur
+       where ur.%I::text = ''super_admin''',
+      v_role_column
+    )
+    into v_super_admin_count;
 
     if v_super_admin_count <= 1 then
       raise exception 'Cannot revoke last super_admin';
     end if;
   end if;
 
-  if v_has_role then
-    delete from public.user_roles
-    where user_id = v_target_user_id
-      and role::text = v_role;
+  execute format(
+    'delete from public.user_roles
+     where user_id = $1
+       and %I::text = $2',
+    v_role_column
+  )
+  using v_target_user_id, v_role;
 
-    get diagnostics v_applied = row_count;
-  else
-    execute
-      'delete from public.user_roles
-       where user_id = $1
-         and user_role::text = $2'
-    using v_target_user_id, v_role;
-
-    get diagnostics v_applied = row_count;
-  end if;
+  get diagnostics v_applied = row_count;
 
   insert into public.role_admin_audit (
     target_user_id,
@@ -346,11 +356,16 @@ begin
     from auth.users u
     where lower(u.email) = 'gabrielneiraillanes@gmail.com'
   ) then
-    perform public.grant_role(
-      'gabrielneiraillanes@gmail.com',
-      'admin',
-      'Bootstrap admin assignment requested in repository task.'
-    );
+    begin
+      perform public.grant_role(
+        'gabrielneiraillanes@gmail.com',
+        'admin',
+        'Bootstrap admin assignment requested in repository task.'
+      );
+    exception
+      when others then
+        raise notice 'Automatic bootstrap grant failed: %', SQLERRM;
+    end;
   else
     raise notice 'User gabrielneiraillanes@gmail.com not found yet; run SELECT public.grant_role(...) after signup.';
   end if;
