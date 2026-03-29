@@ -1165,7 +1165,7 @@ function App() {
       const idCardStorageUri = `pending://operator-id-documents/${sessionUserId}/${Date.now()}`;
       const resolvedRutSecretKey = rutSecretKey || 'temporary-registration-key-v1';
 
-      const { error: rpcError } = await supabase.rpc('register_my_operator_profile', {
+      const basePayload = {
         p_nickname: registrationForm.nickname,
         p_real_name: resolvedFullName,
         p_rut_plain: resolvedRut,
@@ -1177,7 +1177,51 @@ function App() {
         p_emergency_contact_phone: registrationForm.emergencyContactPhone,
         p_avatar_url: registrationForm.avatarUrl || null,
         p_id_card_photo_url: idCardStorageUri
+      };
+
+      const payloadVariants: Array<Record<string, unknown>> = [
+        basePayload,
+        {
+          ...basePayload,
+          p_id_card_photo_url: undefined
+        },
+        {
+          ...basePayload,
+          p_rut_secret_key: undefined
+        },
+        {
+          ...basePayload,
+          p_rut_secret_key: undefined,
+          p_id_card_photo_url: undefined
+        }
+      ].map((payload) => {
+        const cleanPayload: Record<string, unknown> = {};
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value !== undefined) {
+            cleanPayload[key] = value;
+          }
+        });
+        return cleanPayload;
       });
+
+      let rpcError: Error | null = null;
+      for (const variant of payloadVariants) {
+        const rpcResponse = await supabase.rpc('register_my_operator_profile', variant);
+        if (!rpcResponse.error) {
+          rpcError = null;
+          break;
+        }
+
+        rpcError = rpcResponse.error;
+        const errorText = rpcResponse.error.message.toLowerCase();
+        const isSignatureError =
+          errorText.includes('could not find the function public.register_my_operator_profile')
+          || (errorText.includes('function public.register_my_operator_profile') && errorText.includes('does not exist'));
+
+        if (!isSignatureError) {
+          break;
+        }
+      }
 
       if (rpcError) {
         throw rpcError;
