@@ -315,6 +315,48 @@ function App() {
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
   const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations'>('id');
+  const [canAccessFieldOperations, setCanAccessFieldOperations] = useState(false);
+  const [fieldOpsAccessResolved, setFieldOpsAccessResolved] = useState(false);
+
+  async function resolveFieldOperationsAccessForSession(userId: string): Promise<boolean> {
+    if (!supabase) {
+      return false;
+    }
+
+    const accessRpc = await supabase.rpc('can_access_field_operations');
+    if (!accessRpc.error && typeof accessRpc.data === 'boolean') {
+      return accessRpc.data;
+    }
+
+    const organizerRpc = await supabase.rpc('is_platform_organizer');
+    if (!organizerRpc.error && typeof organizerRpc.data === 'boolean') {
+      return organizerRpc.data;
+    }
+
+    const roleCheckPrimary = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['organizer', 'super_admin'])
+      .limit(1);
+
+    if (!roleCheckPrimary.error && roleCheckPrimary.data && roleCheckPrimary.data.length > 0) {
+      return true;
+    }
+
+    const roleCheckLegacy = await supabase
+      .from('user_roles')
+      .select('user_role')
+      .eq('user_id', userId)
+      .in('user_role', ['organizer', 'super_admin'])
+      .limit(1);
+
+    if (!roleCheckLegacy.error && roleCheckLegacy.data && roleCheckLegacy.data.length > 0) {
+      return true;
+    }
+
+    return false;
+  }
 
   async function resolveOperatorFromQr(rawQr: string): Promise<{
     operatorUserId: string;
@@ -781,6 +823,48 @@ function App() {
   useEffect(() => {
     let active = true;
 
+    async function loadFieldOperationsAccess() {
+      if (!supabase || !sessionUserId) {
+        if (active) {
+          setCanAccessFieldOperations(false);
+          setFieldOpsAccessResolved(true);
+        }
+        return;
+      }
+
+      try {
+        const allowed = await resolveFieldOperationsAccessForSession(sessionUserId);
+        if (active) {
+          setCanAccessFieldOperations(allowed);
+        }
+      } catch {
+        if (active) {
+          setCanAccessFieldOperations(false);
+        }
+      } finally {
+        if (active) {
+          setFieldOpsAccessResolved(true);
+        }
+      }
+    }
+
+    setFieldOpsAccessResolved(false);
+    void loadFieldOperationsAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [sessionUserId]);
+
+  useEffect(() => {
+    if (!canAccessFieldOperations && activeExperienceSection === 'operations') {
+      setActiveExperienceSection('id');
+    }
+  }, [canAccessFieldOperations, activeExperienceSection]);
+
+  useEffect(() => {
+    let active = true;
+
     async function loadCurrentUserCredential() {
       if (!hasSupabaseConfig || !supabase) {
         if (active) {
@@ -1079,6 +1163,9 @@ function App() {
     await supabase.auth.signOut();
     setOperatorData(null);
     setNeedsRegistration(false);
+    setCanAccessFieldOperations(false);
+    setFieldOpsAccessResolved(false);
+    setActiveExperienceSection('id');
   }
 
   async function handleOAuthLogin(provider: 'google' | 'facebook') {
@@ -1747,16 +1834,24 @@ function App() {
             >
               ID Operador
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeExperienceSection === 'operations'}
-              className={`app-nav-tab ${activeExperienceSection === 'operations' ? 'is-active' : ''}`}
-              onClick={() => setActiveExperienceSection('operations')}
-            >
-              Operaciones Cancha
-            </button>
+            {canAccessFieldOperations ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeExperienceSection === 'operations'}
+                className={`app-nav-tab ${activeExperienceSection === 'operations' ? 'is-active' : ''}`}
+                onClick={() => setActiveExperienceSection('operations')}
+              >
+                Operaciones Cancha
+              </button>
+            ) : null}
           </div>
+
+          {!canAccessFieldOperations && fieldOpsAccessResolved ? (
+            <p className="page-subtitle id-sync-text">
+              Modo jugador activo: Operaciones Cancha disponible solo para organizadores y administradores.
+            </p>
+          ) : null}
 
           {activeExperienceSection === 'id' ? (
             <>
@@ -1904,22 +1999,6 @@ function App() {
               <details className="id-secondary-tools">
                 <summary>Herramientas avanzadas</summary>
 
-                <div className="scanner-pane id-secondary-pane">
-                  <OrganizerScannerView
-                    eventId="EVT-LOCAL-001"
-                    onResolveQr={resolveOperatorFromQr}
-                    onCheckin={async () => {
-                      await Promise.resolve();
-                    }}
-                    onChronoValidate={async () => {
-                      await Promise.resolve();
-                    }}
-                    onFairPlayReport={async () => {
-                      await Promise.resolve();
-                    }}
-                  />
-                </div>
-
                 <section className="page-career id-secondary-pane">
                   <PlayerLevelMetricsPanel
                     level={3}
@@ -1985,12 +2064,38 @@ function App() {
                 </section>
               </details>
             </>
+          ) : canAccessFieldOperations ? (
+            <>
+              <details className="id-secondary-tools" open>
+                <summary>Escaner QR Operaciones Cancha</summary>
+
+                <div className="scanner-pane id-secondary-pane">
+                  <OrganizerScannerView
+                    eventId="EVT-LOCAL-001"
+                    onResolveQr={resolveOperatorFromQr}
+                    onCheckin={async () => {
+                      await Promise.resolve();
+                    }}
+                    onChronoValidate={async () => {
+                      await Promise.resolve();
+                    }}
+                    onFairPlayReport={async () => {
+                      await Promise.resolve();
+                    }}
+                  />
+                </div>
+              </details>
+
+              <FieldOperationsConsole
+                operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin cancha').trim()}
+                operatorCredentialId={operatorData?.credentialId}
+                sessionUserId={sessionUserId}
+              />
+            </>
           ) : (
-            <FieldOperationsConsole
-              operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin cancha').trim()}
-              operatorCredentialId={operatorData?.credentialId}
-              sessionUserId={sessionUserId}
-            />
+            <p className="page-subtitle id-sync-text">
+              No tienes permisos para acceder a Operaciones Cancha con esta cuenta.
+            </p>
           )}
         </div>
       </section>

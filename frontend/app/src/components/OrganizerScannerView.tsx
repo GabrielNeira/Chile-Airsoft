@@ -65,7 +65,7 @@ export function OrganizerScannerView({
   const [rawQr, setRawQr] = useState('');
   const [target, setTarget] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('Esperando escaneo');
+  const [status, setStatus] = useState('Camara apagada. Activa la camara para escanear.');
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanTone, setScanTone] = useState<ScanTone>('idle');
@@ -82,8 +82,6 @@ export function OrganizerScannerView({
   const canSubmit = useMemo(() => Boolean(target?.operatorUserId), [target]);
 
   useEffect(() => {
-    void startCamera();
-
     return () => {
       stopCamera();
     };
@@ -125,6 +123,7 @@ export function OrganizerScannerView({
 
       cameraActiveRef.current = true;
       setCameraActive(true);
+      setStatus('Camara activa. Apunta al QR para validar AirsoftID.');
       loopScan();
     } catch (error) {
       setCameraError(`No se pudo abrir la camara: ${(error as Error).message}`);
@@ -147,6 +146,8 @@ export function OrganizerScannerView({
     detectorRef.current = null;
     cameraActiveRef.current = false;
     setCameraActive(false);
+    setScanTone('idle');
+    setStatus('Camara apagada. Activa la camara para escanear.');
   }
 
   function loopScan() {
