@@ -294,7 +294,6 @@ function App() {
     acceptTerms: false,
     acceptDataProcessing: false
   });
-  const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const [editTeamLogoFile, setEditTeamLogoFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<EditableProfileForm>({
     nickname: '',
@@ -734,52 +733,6 @@ function App() {
     };
   }, [needsIdentityOnboarding, identityOnboardingForm.rut, lastLookupRut]);
 
-  function extractRutFromText(rawText: string): string | null {
-    const dotted = rawText.match(/\b\d{1,2}\.\d{3}\.\d{3}-[\dkK]\b/);
-    if (dotted?.[0]) {
-      return dotted[0].toUpperCase();
-    }
-
-    const compact = rawText.match(/\b\d{7,8}[\dkK]\b/);
-    if (!compact?.[0]) {
-      return null;
-    }
-
-    const clean = compact[0].toUpperCase();
-    const body = clean.slice(0, -1);
-    const dv = clean.slice(-1);
-    const withDots = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `${withDots}-${dv}`;
-  }
-
-  async function detectRutFromIdCard(file: File): Promise<string | null> {
-    const BarcodeDetectorApi = (window as Window & { BarcodeDetector?: any }).BarcodeDetector;
-    if (!BarcodeDetectorApi) {
-      return null;
-    }
-
-    try {
-      const detector = new BarcodeDetectorApi({ formats: ['pdf417', 'qr_code'] });
-      const bitmap = await createImageBitmap(file);
-      const candidates = await detector.detect(bitmap);
-      if (typeof bitmap.close === 'function') {
-        bitmap.close();
-      }
-
-      for (const candidate of candidates as Array<{ rawValue?: string }>) {
-        const payload = candidate.rawValue ?? '';
-        const rut = extractRutFromText(payload);
-        if (rut) {
-          return rut;
-        }
-      }
-    } catch {
-      return null;
-    }
-
-    return null;
-  }
-
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
       setAuthLoading(false);
@@ -1197,11 +1150,6 @@ function App() {
       return;
     }
 
-    if (!rutSecretKey) {
-      setRegistrationError('Falta VITE_RUT_SECRET_KEY en frontend/app/.env');
-      return;
-    }
-
     const resolvedRut = identityRut ?? registrationForm.rut;
     const resolvedFullName = identityFullName ?? registrationForm.realName;
 
@@ -1214,31 +1162,14 @@ function App() {
       setRegistrationLoading(true);
       setRegistrationError(null);
       setLookupError(null);
-      const fallbackIdCardUri = `pending://operator-id-documents/${sessionUserId}/${Date.now()}`;
-      let idCardStorageUri = fallbackIdCardUri;
-
-      if (idCardFile) {
-        const safeName = idCardFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const storagePath = `${sessionUserId}/id-card-${Date.now()}-${safeName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('operator-id-documents')
-          .upload(storagePath, idCardFile, { upsert: false });
-
-        if (uploadError) {
-          setAuthMessage(
-            'Perfil creado con foto pendiente: no se pudo subir el carnet en este intento. Puedes actualizarlo luego.'
-          );
-        } else {
-          idCardStorageUri = `storage://operator-id-documents/${storagePath}`;
-        }
-      }
+      const idCardStorageUri = `pending://operator-id-documents/${sessionUserId}/${Date.now()}`;
+      const resolvedRutSecretKey = rutSecretKey || 'temporary-registration-key-v1';
 
       const { error: rpcError } = await supabase.rpc('register_my_operator_profile', {
         p_nickname: registrationForm.nickname,
         p_real_name: resolvedFullName,
         p_rut_plain: resolvedRut,
-        p_rut_secret_key: rutSecretKey,
+        p_rut_secret_key: resolvedRutSecretKey,
         p_blood_group: registrationForm.bloodGroup,
         p_team: registrationForm.team || null,
         p_operator_role: registrationForm.operatorRole,
@@ -1253,7 +1184,6 @@ function App() {
       }
 
       setNeedsRegistration(false);
-      setIdCardFile(null);
       setAuthMessage('Perfil registrado correctamente.');
       setRegistrationForm({
         nickname: '',
@@ -1309,19 +1239,6 @@ function App() {
       setRegistrationError(toFriendlyError(error));
     } finally {
       setRegistrationLoading(false);
-    }
-  }
-
-  async function handleRegistrationCardInput(file: File | null) {
-    setIdCardFile(file);
-    if (!file) {
-      return;
-    }
-
-    const detectedRut = await detectRutFromIdCard(file);
-    if (detectedRut) {
-      setRegistrationForm((prev) => ({ ...prev, rut: detectedRut }));
-      setRegistrationError(null);
     }
   }
 
@@ -1766,18 +1683,6 @@ function App() {
                   placeholder="https://..."
                 />
               </label>
-              <label className="form-field file-field">
-                Foto de carnet (opcional)
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  capture="environment"
-                  onChange={(e) => {
-                    void handleRegistrationCardInput(e.target.files?.[0] ?? null);
-                  }}
-                />
-              </label>
-
               <button type="submit" className="primary-btn primary-btn-full" disabled={registrationLoading}>
                 {registrationLoading ? 'Registrando...' : 'Registrar perfil'}
               </button>

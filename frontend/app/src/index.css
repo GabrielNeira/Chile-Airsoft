@@ -120,6 +120,7 @@ select {
     0 18px 48px rgba(2, 8, 7, 0.56),
     inset 0 1px 0 rgba(227, 255, 239, 0.3);
   max-width: 620px;
+  width: min(100%, 620px);
 }
 
 .auth-form {
@@ -165,6 +166,7 @@ select {
 
 .auth-form-registration {
   gap: 10px;
+  width: 100%;
 }
 
 .auth-form-registration .form-field {
@@ -174,6 +176,10 @@ select {
   padding: 10px;
   background: linear-gradient(160deg, rgba(12, 30, 24, 0.42), rgba(7, 18, 15, 0.36));
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.auth-form-registration .primary-btn-full {
+  margin-top: 2px;
 }
 
 .auth-form-registration .form-field:focus-within {
@@ -665,7 +671,26 @@ select {
   }
 
   .auth-form-registration .form-field {
-    padding: 9px;
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .auth-form-registration .form-field label,
+  .auth-form-registration .form-field,
+  .auth-form-registration .form-field input,
+  .auth-form-registration .form-field select {
+    font-size: 15px;
+  }
+
+  .auth-form-registration input,
+  .auth-form-registration select {
+    padding: 11px 12px;
+  }
+
+  .auth-form-registration .primary-btn-full {
+    position: sticky;
+    bottom: 8px;
+    z-index: 2;
   }
 
   .consent-check {
