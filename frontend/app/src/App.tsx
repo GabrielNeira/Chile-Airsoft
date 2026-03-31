@@ -276,6 +276,7 @@ function App() {
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [identityOnboardingLoading, setIdentityOnboardingLoading] = useState(false);
   const [identityOnboardingError, setIdentityOnboardingError] = useState<string | null>(null);
+  const [showCredentialModal, setShowCredentialModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -511,6 +512,10 @@ function App() {
 
     if (rawMessage.includes('Invalid RUT format or verifier digit')) {
       return 'El RUT ingresado no es valido (revisa digito verificador).';
+    }
+
+    if (rawMessage.toLowerCase().includes('could not find the function public.register_my_operator_profile')) {
+      return 'No pudimos completar tu registro porque el backend de perfil no esta sincronizado. Avisa al equipo para aplicar las migraciones de registro.';
     }
 
     return rawMessage;
@@ -1001,6 +1006,8 @@ function App() {
     await supabase.auth.signOut();
     setOperatorData(null);
     setNeedsRegistration(false);
+    setNeedsIdentityOnboarding(false);
+    setShowCredentialModal(false);
     setCanAccessFieldOperations(false);
     setFieldOpsAccessResolved(false);
     setActiveExperienceSection('id');
@@ -1049,7 +1056,7 @@ function App() {
       const idCardStorageUri = `pending://operator-id-documents/${sessionUserId}/${Date.now()}`;
       const resolvedRutSecretKey = rutSecretKey || 'temporary-registration-key-v1';
 
-      const basePayload = {
+      const payload = {
         p_nickname: registrationForm.nickname,
         p_real_name: resolvedFullName,
         p_rut_plain: resolvedRut,
@@ -1063,55 +1070,13 @@ function App() {
         p_id_card_photo_url: idCardStorageUri
       };
 
-      const payloadVariants: Array<Record<string, unknown>> = [
-        basePayload,
-        {
-          ...basePayload,
-          p_id_card_photo_url: undefined
-        },
-        {
-          ...basePayload,
-          p_rut_secret_key: undefined
-        },
-        {
-          ...basePayload,
-          p_rut_secret_key: undefined,
-          p_id_card_photo_url: undefined
-        }
-      ].map((payload) => {
-        const cleanPayload: Record<string, unknown> = {};
-        Object.entries(payload).forEach(([key, value]) => {
-          if (value !== undefined) {
-            cleanPayload[key] = value;
-          }
-        });
-        return cleanPayload;
-      });
-
-      let rpcError: Error | null = null;
-      for (const variant of payloadVariants) {
-        const rpcResponse = await supabase.rpc('register_my_operator_profile', variant);
-        if (!rpcResponse.error) {
-          rpcError = null;
-          break;
-        }
-
-        rpcError = rpcResponse.error;
-        const errorText = rpcResponse.error.message.toLowerCase();
-        const isSignatureError =
-          errorText.includes('could not find the function public.register_my_operator_profile')
-          || (errorText.includes('function public.register_my_operator_profile') && errorText.includes('does not exist'));
-
-        if (!isSignatureError) {
-          break;
-        }
-      }
-
-      if (rpcError) {
-        throw rpcError;
+      const rpcResponse = await supabase.rpc('register_my_operator_profile', payload);
+      if (rpcResponse.error) {
+        throw rpcResponse.error;
       }
 
       setNeedsRegistration(false);
+      setShowCredentialModal(false);
       setAuthMessage('Perfil registrado correctamente.');
       setRegistrationForm({
         nickname: '',
@@ -1292,6 +1257,17 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (!sessionUserId) {
+      setShowCredentialModal(false);
+      return;
+    }
+
+    if (needsIdentityOnboarding || needsRegistration) {
+      setShowCredentialModal(true);
+    }
+  }, [sessionUserId, needsIdentityOnboarding, needsRegistration]);
+
   if (!hasSupabaseConfig) {
     return (
       <main className="page-shell auth-shell">
@@ -1434,195 +1410,8 @@ function App() {
     );
   }
 
-  if (needsIdentityOnboarding) {
-    return (
-      <main className="page-shell auth-shell">
-        <div className="page-bg" />
-        <section className="page-grid page-grid-auth">
-          <div className="auth-card">
-            <h1 className="page-title">Registro Inicial</h1>
-            <p className="page-subtitle">Sesion activa con {sessionUserEmail ?? 'usuario'}.</p>
-            <p className="page-subtitle">Completa identidad legal para continuar: RUT, nombre legal y consentimientos.</p>
-
-            <form className="auth-form auth-form-registration" onSubmit={handleCompleteIdentityOnboarding}>
-              <label className="form-field is-readonly">
-                Correo electronico
-                <input value={sessionUserEmail ?? email} readOnly />
-              </label>
-              <label className="form-field">
-                RUT
-                <input
-                  value={identityOnboardingForm.rut}
-                  onChange={(e) => {
-                    const formatted = formatRutInput(e.target.value);
-                    setIdentityOnboardingForm((prev) => ({ ...prev, rut: formatted }));
-                  }}
-                  placeholder="12.345.678-9"
-                  required
-                />
-              </label>
-              <label className="form-field">
-                Nombre legal
-                <input
-                  value={identityOnboardingForm.fullName}
-                  onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, fullName: e.target.value }))}
-                  required
-                />
-              </label>
-
-              <div className="consent-stack" role="group" aria-label="Consentimientos obligatorios para completar identidad">
-                <label className="consent-check">
-                  <input
-                    type="checkbox"
-                    checked={identityOnboardingForm.acceptPrivacy}
-                    onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptPrivacy: e.target.checked }))}
-                    required
-                  />
-                  <span className="consent-copy">Acepto el aviso de privacidad (Ley N 19.628).</span>
-                </label>
-                <label className="consent-check">
-                  <input
-                    type="checkbox"
-                    checked={identityOnboardingForm.acceptTerms}
-                    onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptTerms: e.target.checked }))}
-                    required
-                  />
-                  <span className="consent-copy">Acepto terminos y condiciones de uso.</span>
-                </label>
-                <label className="consent-check">
-                  <input
-                    type="checkbox"
-                    checked={identityOnboardingForm.acceptDataProcessing}
-                    onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptDataProcessing: e.target.checked }))}
-                    required
-                  />
-                  <span className="consent-copy">Autorizo tratamiento de datos para autenticacion y operacion del servicio.</span>
-                </label>
-              </div>
-
-              <button type="submit" className="primary-btn primary-btn-full" disabled={identityOnboardingLoading}>
-                {identityOnboardingLoading ? 'Guardando...' : 'Confirmar identidad'}
-              </button>
-            </form>
-
-            {identityOnboardingError && <p className="error-text">{sanitizeUiMessage(identityOnboardingError)}</p>}
-
-            <button type="button" className="ghost-btn" onClick={handleLogout}>
-              Cerrar sesion
-            </button>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  if (needsRegistration) {
-    return (
-      <main className="page-shell auth-shell">
-        <div className="page-bg" />
-        <section className="page-grid page-grid-auth">
-          <div className="auth-card">
-            <h1 className="page-title">Completa tu Registro de Operador</h1>
-            <p className="page-subtitle">Sesion activa con {sessionUserEmail ?? 'usuario'}.</p>
-            <p className="page-subtitle">Primer login detectado. Completa ahora los datos operativos restantes.</p>
-
-            <form className="auth-form auth-form-registration" onSubmit={handleRegisterProfile}>
-              <label className="form-field is-readonly">
-                RUT (llave unica)
-                <input value={identityRut ?? 'No registrado en identidad'} readOnly />
-              </label>
-              <label className="form-field is-readonly">
-                Nombre legal
-                <input value={identityFullName ?? registrationForm.realName ?? 'Sin nombre legal'} readOnly />
-              </label>
-              <label className="form-field">
-                Nickname
-                <input
-                  value={registrationForm.nickname}
-                  onChange={(e) => setRegistrationForm((prev) => ({ ...prev, nickname: e.target.value }))}
-                  required
-                />
-              </label>
-              <label className="form-field">
-                Grupo sanguineo
-                <select
-                  value={registrationForm.bloodGroup}
-                  onChange={(e) => setRegistrationForm((prev) => ({ ...prev, bloodGroup: e.target.value }))}
-                >
-                  <option value="A+">A+</option>
-                  <option value="A-">A-</option>
-                  <option value="B+">B+</option>
-                  <option value="B-">B-</option>
-                  <option value="AB+">AB+</option>
-                  <option value="AB-">AB-</option>
-                  <option value="O+">O+</option>
-                  <option value="O-">O-</option>
-                </select>
-              </label>
-              <label className="form-field">
-                Rol operador
-                <select
-                  value={registrationForm.operatorRole}
-                  onChange={(e) => setRegistrationForm((prev) => ({ ...prev, operatorRole: e.target.value }))}
-                >
-                  <option value="assault">assault</option>
-                  <option value="sniper">sniper</option>
-                  <option value="medic">medic</option>
-                  <option value="support">support</option>
-                  <option value="dmr">dmr</option>
-                  <option value="breacher">breacher</option>
-                  <option value="recon">recon</option>
-                  <option value="commander">commander</option>
-                  <option value="other">other</option>
-                </select>
-              </label>
-              <label className="form-field">
-                Equipo
-                <input
-                  value={registrationForm.team}
-                  onChange={(e) => setRegistrationForm((prev) => ({ ...prev, team: e.target.value }))}
-                />
-              </label>
-              <label className="form-field">
-                Contacto emergencia
-                <input
-                  value={registrationForm.emergencyContactName}
-                  onChange={(e) => setRegistrationForm((prev) => ({ ...prev, emergencyContactName: e.target.value }))}
-                  required
-                />
-              </label>
-              <label className="form-field">
-                Telefono emergencia
-                <input
-                  value={registrationForm.emergencyContactPhone}
-                  onChange={(e) => setRegistrationForm((prev) => ({ ...prev, emergencyContactPhone: e.target.value }))}
-                  required
-                />
-              </label>
-              <label className="form-field">
-                URL avatar (opcional)
-                <input
-                  value={registrationForm.avatarUrl}
-                  onChange={(e) => setRegistrationForm((prev) => ({ ...prev, avatarUrl: e.target.value }))}
-                  placeholder="https://..."
-                />
-              </label>
-              <button type="submit" className="primary-btn primary-btn-full" disabled={registrationLoading}>
-                {registrationLoading ? 'Registrando...' : 'Registrar perfil'}
-              </button>
-            </form>
-
-            {registrationError && <p className="error-text">{sanitizeUiMessage(registrationError)}</p>}
-            {authMessage && <p className="page-subtitle">{authMessage}</p>}
-
-            <button type="button" className="ghost-btn" onClick={handleLogout}>
-              Cerrar sesion
-            </button>
-          </div>
-        </section>
-      </main>
-    );
-  }
+  const needsCredentialSetup = needsIdentityOnboarding || needsRegistration;
+  const showingIdentityStep = needsIdentityOnboarding;
 
   return (
     <main className="page-shell page-shell-id-focus">
@@ -1633,6 +1422,17 @@ function App() {
           <p className="page-subtitle id-session-subtitle">
             Sesion activa: {(operatorData?.nickname || editForm.nickname || 'operador').trim()}
           </p>
+
+          {needsCredentialSetup ? (
+            <div className="auth-card" style={{ marginBottom: '1rem' }}>
+              <p className="page-subtitle" style={{ marginBottom: '0.75rem' }}>
+                Para obtener tu credencial ID, completa tu identidad y datos de operador.
+              </p>
+              <button type="button" className="primary-btn" onClick={() => setShowCredentialModal(true)}>
+                Completar credencial ID
+              </button>
+            </div>
+          ) : null}
 
           <div className="id-actions" role="toolbar" aria-label="Acciones de cuenta">
             <button type="button" className="ghost-btn id-action-btn" onClick={handleLogout}>
@@ -1928,6 +1728,198 @@ function App() {
           )}
         </div>
       </section>
+
+      {showCredentialModal && needsCredentialSetup ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(2, 14, 16, 0.72)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <div className="auth-card" style={{ width: 'min(760px, 100%)', maxHeight: '92vh', overflowY: 'auto' }}>
+            {showingIdentityStep ? (
+              <>
+                <h1 className="page-title">Registro Inicial</h1>
+                <p className="page-subtitle">Sesion activa con {sessionUserEmail ?? 'usuario'}.</p>
+                <p className="page-subtitle">Completa identidad legal para habilitar tu credencial.</p>
+
+                <form className="auth-form auth-form-registration" onSubmit={handleCompleteIdentityOnboarding}>
+                  <label className="form-field is-readonly">
+                    Correo electronico
+                    <input value={sessionUserEmail ?? email} readOnly />
+                  </label>
+                  <label className="form-field">
+                    RUT
+                    <input
+                      value={identityOnboardingForm.rut}
+                      onChange={(e) => {
+                        const formatted = formatRutInput(e.target.value);
+                        setIdentityOnboardingForm((prev) => ({ ...prev, rut: formatted }));
+                      }}
+                      placeholder="12.345.678-9"
+                      required
+                    />
+                  </label>
+                  <label className="form-field">
+                    Nombre legal
+                    <input
+                      value={identityOnboardingForm.fullName}
+                      onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                      required
+                    />
+                  </label>
+
+                  <div className="consent-stack" role="group" aria-label="Consentimientos obligatorios para completar identidad">
+                    <label className="consent-check">
+                      <input
+                        type="checkbox"
+                        checked={identityOnboardingForm.acceptPrivacy}
+                        onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptPrivacy: e.target.checked }))}
+                        required
+                      />
+                      <span className="consent-copy">Acepto el aviso de privacidad (Ley N 19.628).</span>
+                    </label>
+                    <label className="consent-check">
+                      <input
+                        type="checkbox"
+                        checked={identityOnboardingForm.acceptTerms}
+                        onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptTerms: e.target.checked }))}
+                        required
+                      />
+                      <span className="consent-copy">Acepto terminos y condiciones de uso.</span>
+                    </label>
+                    <label className="consent-check">
+                      <input
+                        type="checkbox"
+                        checked={identityOnboardingForm.acceptDataProcessing}
+                        onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, acceptDataProcessing: e.target.checked }))}
+                        required
+                      />
+                      <span className="consent-copy">Autorizo tratamiento de datos para autenticacion y operacion del servicio.</span>
+                    </label>
+                  </div>
+
+                  <button type="submit" className="primary-btn primary-btn-full" disabled={identityOnboardingLoading}>
+                    {identityOnboardingLoading ? 'Guardando...' : 'Confirmar identidad'}
+                  </button>
+                </form>
+
+                {identityOnboardingError && <p className="error-text">{sanitizeUiMessage(identityOnboardingError)}</p>}
+              </>
+            ) : (
+              <>
+                <h1 className="page-title">Completa tu Registro de Operador</h1>
+                <p className="page-subtitle">Sesion activa con {sessionUserEmail ?? 'usuario'}.</p>
+                <p className="page-subtitle">Este paso habilita la credencial ID con tus datos de campo.</p>
+
+                <form className="auth-form auth-form-registration" onSubmit={handleRegisterProfile}>
+                  <label className="form-field is-readonly">
+                    RUT (llave unica)
+                    <input value={identityRut ?? 'No registrado en identidad'} readOnly />
+                  </label>
+                  <label className="form-field is-readonly">
+                    Nombre legal
+                    <input value={identityFullName ?? registrationForm.realName ?? 'Sin nombre legal'} readOnly />
+                  </label>
+                  <label className="form-field">
+                    Nickname
+                    <input
+                      value={registrationForm.nickname}
+                      onChange={(e) => setRegistrationForm((prev) => ({ ...prev, nickname: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label className="form-field">
+                    Grupo sanguineo
+                    <select
+                      value={registrationForm.bloodGroup}
+                      onChange={(e) => setRegistrationForm((prev) => ({ ...prev, bloodGroup: e.target.value }))}
+                    >
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                    </select>
+                  </label>
+                  <label className="form-field">
+                    Rol operador
+                    <select
+                      value={registrationForm.operatorRole}
+                      onChange={(e) => setRegistrationForm((prev) => ({ ...prev, operatorRole: e.target.value }))}
+                    >
+                      <option value="assault">assault</option>
+                      <option value="sniper">sniper</option>
+                      <option value="medic">medic</option>
+                      <option value="support">support</option>
+                      <option value="dmr">dmr</option>
+                      <option value="breacher">breacher</option>
+                      <option value="recon">recon</option>
+                      <option value="commander">commander</option>
+                      <option value="other">other</option>
+                    </select>
+                  </label>
+                  <label className="form-field">
+                    Equipo
+                    <input
+                      value={registrationForm.team}
+                      onChange={(e) => setRegistrationForm((prev) => ({ ...prev, team: e.target.value }))}
+                    />
+                  </label>
+                  <label className="form-field">
+                    Contacto emergencia
+                    <input
+                      value={registrationForm.emergencyContactName}
+                      onChange={(e) => setRegistrationForm((prev) => ({ ...prev, emergencyContactName: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label className="form-field">
+                    Telefono emergencia
+                    <input
+                      value={registrationForm.emergencyContactPhone}
+                      onChange={(e) => setRegistrationForm((prev) => ({ ...prev, emergencyContactPhone: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label className="form-field">
+                    URL avatar (opcional)
+                    <input
+                      value={registrationForm.avatarUrl}
+                      onChange={(e) => setRegistrationForm((prev) => ({ ...prev, avatarUrl: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </label>
+                  <button type="submit" className="primary-btn primary-btn-full" disabled={registrationLoading}>
+                    {registrationLoading ? 'Registrando...' : 'Registrar perfil'}
+                  </button>
+                </form>
+
+                {registrationError && <p className="error-text">{sanitizeUiMessage(registrationError)}</p>}
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="ghost-btn" onClick={() => setShowCredentialModal(false)}>
+                Recordar mas tarde
+              </button>
+              <button type="button" className="ghost-btn" onClick={handleLogout}>
+                Cerrar sesion
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
