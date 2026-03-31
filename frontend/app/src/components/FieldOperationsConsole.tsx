@@ -179,6 +179,12 @@ interface MetricRowRaw {
   total_field_time_seconds?: number | null;
 }
 
+interface FieldAdminRow {
+  user_id: string;
+  email: string;
+  assigned_at: string;
+}
+
 const TEAM_LABEL: Record<TeamSlot, string> = {
   alpha: 'Team Alpha',
   bravo: 'Team Bravo',
@@ -338,6 +344,11 @@ export default function FieldOperationsConsole({
   const [lookupBusy, setLookupBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Listo para administrar canchas con base en ID.');
   const [missingTables, setMissingTables] = useState(false);
+  const [canManageFieldAdmins, setCanManageFieldAdmins] = useState(false);
+  const [adminFieldId, setAdminFieldId] = useState('');
+  const [fieldAdminEmailInput, setFieldAdminEmailInput] = useState('');
+  const [fieldAdmins, setFieldAdmins] = useState<FieldAdminRow[]>([]);
+  const [fieldAdminBusy, setFieldAdminBusy] = useState(false);
 
   const activeEvent = useMemo(
     () => events.find((eventItem) => eventItem.id === activeEventId) ?? null,
@@ -435,6 +446,15 @@ export default function FieldOperationsConsole({
   }, [activeEventId]);
 
   useEffect(() => {
+    if (!canManageFieldAdmins || !supabase || !adminFieldId) {
+      setFieldAdmins([]);
+      return;
+    }
+
+    void loadFieldAdminsByField(adminFieldId);
+  }, [canManageFieldAdmins, adminFieldId]);
+
+  useEffect(() => {
     if (!runningMatch) {
       return;
     }
@@ -449,13 +469,13 @@ export default function FieldOperationsConsole({
     }
 
     const accessRpc = await supabase.rpc('can_access_field_operations');
-    if (!accessRpc.error && typeof accessRpc.data === 'boolean') {
-      return accessRpc.data;
+    if (!accessRpc.error && accessRpc.data === true) {
+      return true;
     }
 
     const organizerRpc = await supabase.rpc('is_platform_organizer');
-    if (!organizerRpc.error && typeof organizerRpc.data === 'boolean') {
-      return organizerRpc.data;
+    if (!organizerRpc.error && organizerRpc.data === true) {
+      return true;
     }
 
     if (
@@ -500,6 +520,10 @@ export default function FieldOperationsConsole({
     try {
       await resolveFieldOperationsAccess();
 
+      const maintainRpc = await supabase.rpc('can_manage_field_admins_by_email');
+      const canMaintainAdmins = !maintainRpc.error && maintainRpc.data === true;
+      setCanManageFieldAdmins(canMaintainAdmins);
+
       const [fieldsRes, eventsRes] = await Promise.all([
         supabase.from('fields').select('id,name,city').order('name'),
         supabase
@@ -520,6 +544,9 @@ export default function FieldOperationsConsole({
 
       if (nextFields.length > 0) {
         setEventFieldId((prev) => prev || nextFields[0].id);
+        if (canMaintainAdmins) {
+          setAdminFieldId((prev) => prev || nextFields[0].id);
+        }
       }
 
       if (nextEvents.length > 0) {
@@ -529,6 +556,97 @@ export default function FieldOperationsConsole({
       setStatusMessage(mapError(error));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function loadFieldAdminsByField(fieldId: string) {
+    if (!supabase || !fieldId) {
+      return;
+    }
+
+    setFieldAdminBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('list_field_admins_for_field', {
+        p_field_id: fieldId
+      });
+
+      if (error) throw error;
+      setFieldAdmins((data as FieldAdminRow[] | null) ?? []);
+    } catch (error) {
+      setFieldAdmins([]);
+      setStatusMessage(mapError(error));
+    } finally {
+      setFieldAdminBusy(false);
+    }
+  }
+
+  async function handleAssignFieldAdminByEmail() {
+    if (!supabase) {
+      return;
+    }
+
+    if (!adminFieldId) {
+      setStatusMessage('Selecciona una cancha para asignar admin.');
+      return;
+    }
+
+    const nextEmail = fieldAdminEmailInput.trim().toLowerCase();
+    if (!nextEmail) {
+      setStatusMessage('Debes indicar un correo para asignar admin de cancha.');
+      return;
+    }
+
+    setFieldAdminBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('set_field_admin_by_email', {
+        p_field_id: adminFieldId,
+        p_user_email: nextEmail,
+        p_enabled: true
+      });
+
+      if (error) throw error;
+
+      const status = String((data as { status?: string } | null)?.status ?? 'assigned');
+      setFieldAdminEmailInput('');
+      setStatusMessage(
+        status === 'already_assigned'
+          ? `El correo ${nextEmail} ya era admin en esta cancha.`
+          : `Admin de cancha asignado a ${nextEmail}.`
+      );
+      await loadFieldAdminsByField(adminFieldId);
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setFieldAdminBusy(false);
+    }
+  }
+
+  async function handleRevokeFieldAdminByEmail(email: string) {
+    if (!supabase || !adminFieldId) {
+      return;
+    }
+
+    setFieldAdminBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('set_field_admin_by_email', {
+        p_field_id: adminFieldId,
+        p_user_email: email,
+        p_enabled: false
+      });
+
+      if (error) throw error;
+
+      const status = String((data as { status?: string } | null)?.status ?? 'revoked');
+      setStatusMessage(
+        status === 'not_assigned'
+          ? `El correo ${email} no estaba asignado en esta cancha.`
+          : `Acceso de admin de cancha revocado para ${email}.`
+      );
+      await loadFieldAdminsByField(adminFieldId);
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setFieldAdminBusy(false);
     }
   }
 
@@ -1959,6 +2077,68 @@ export default function FieldOperationsConsole({
               </ul>
             </article>
           </section>
+
+          {canManageFieldAdmins ? (
+            <section className="ops-grid ops-grid-bottom">
+              <article className="ops-card">
+                <h4>Mantenedor admin cancha por correo</h4>
+                <p className="ops-muted">Solo super admin designado: asigna o revoca administradores por correo.</p>
+
+                <label>
+                  Cancha
+                  <select value={adminFieldId} onChange={(event) => setAdminFieldId(event.target.value)}>
+                    {fields.map((field) => (
+                      <option key={field.id} value={field.id}>
+                        {field.name}{field.city ? ` (${field.city})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Correo del administrador
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    value={fieldAdminEmailInput}
+                    onChange={(event) => setFieldAdminEmailInput(event.target.value)}
+                    placeholder="admin@cancha.cl"
+                  />
+                </label>
+
+                <div className="ops-inline-actions">
+                  <button
+                    type="button"
+                    onClick={() => void handleAssignFieldAdminByEmail()}
+                    disabled={fieldAdminBusy || !adminFieldId}
+                  >
+                    {fieldAdminBusy ? 'Guardando...' : 'Asignar admin'}
+                  </button>
+                </div>
+
+                <ul className="ops-list">
+                  {fieldAdmins.length === 0 ? <li>No hay admins asignados para esta cancha.</li> : null}
+                  {fieldAdmins.map((row) => (
+                    <li key={`${row.user_id}:${row.assigned_at}`} className="ops-paid-row">
+                      <span>
+                        <strong>{row.email || row.user_id}</strong>
+                        <small>Asignado: {new Date(row.assigned_at).toLocaleString('es-CL')}</small>
+                      </span>
+                      <div className="ops-inline-actions">
+                        <button
+                          type="button"
+                          disabled={fieldAdminBusy}
+                          onClick={() => void handleRevokeFieldAdminByEmail(row.email)}
+                        >
+                          Revocar
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </section>
+          ) : null}
         </section>
       )}
 

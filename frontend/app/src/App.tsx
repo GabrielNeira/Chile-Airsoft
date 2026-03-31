@@ -74,6 +74,15 @@ interface SupabaseLikeError {
   message?: string;
 }
 
+function sanitizeUiMessage(rawMessage: string): string {
+  const lowered = rawMessage.toLowerCase();
+  if (lowered.includes('edge function returned a non-2xx status code') || lowered.includes('non-2xx')) {
+    return 'No fue posible completar esta operacion por un error del servidor. Intenta nuevamente en unos minutos.';
+  }
+
+  return rawMessage;
+}
+
 function BrandLogo() {
   const [brandSrc, setBrandSrc] = useState('/logo.png?v=2');
 
@@ -267,9 +276,6 @@ function App() {
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [identityOnboardingLoading, setIdentityOnboardingLoading] = useState(false);
   const [identityOnboardingError, setIdentityOnboardingError] = useState<string | null>(null);
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [lastLookupRut, setLastLookupRut] = useState<string>('');
   const [editMode, setEditMode] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -323,13 +329,18 @@ function App() {
     }
 
     const accessRpc = await supabase.rpc('can_access_field_operations');
-    if (!accessRpc.error && typeof accessRpc.data === 'boolean') {
-      return accessRpc.data;
+    if (!accessRpc.error && accessRpc.data === true) {
+      return true;
+    }
+
+    const emailAdminMaintainerRpc = await supabase.rpc('can_manage_field_admins_by_email');
+    if (!emailAdminMaintainerRpc.error && emailAdminMaintainerRpc.data === true) {
+      return true;
     }
 
     const organizerRpc = await supabase.rpc('is_platform_organizer');
-    if (!organizerRpc.error && typeof organizerRpc.data === 'boolean') {
-      return organizerRpc.data;
+    if (!organizerRpc.error && organizerRpc.data === true) {
+      return true;
     }
 
     const roleCheckPrimary = await supabase
@@ -484,7 +495,7 @@ function App() {
 
   function toFriendlyError(error: unknown): string {
     const supabaseError = error as SupabaseLikeError;
-    const rawMessage = supabaseError?.message ?? 'Error desconocido';
+    const rawMessage = sanitizeUiMessage(supabaseError?.message ?? 'Error desconocido');
 
     if (supabaseError?.code === '23505' && rawMessage.includes('operator_profiles_nickname_key')) {
       return 'Ese nickname ya esta en uso. Elige otro o libera el nickname desde la cuenta anterior.';
@@ -503,63 +514,6 @@ function App() {
     }
 
     return rawMessage;
-  }
-
-  function inferFullNameFromApiPayload(payload: unknown): string | null {
-    if (!payload || typeof payload !== 'object') {
-      return null;
-    }
-
-    const data = payload as Record<string, unknown>;
-
-    // Common wrapper format: { status: 'success', data: { name: '...' } }
-    const nestedData = (typeof data.data === 'object' && data.data !== null)
-      ? (data.data as Record<string, unknown>)
-      : null;
-
-    const directKeys = [
-      'full_name',
-      'fullName',
-      'nombre_completo',
-      'razon_social',
-      'razonSocial',
-      'nombreCompleto',
-      'name',
-      'nombre'
-    ];
-
-    for (const key of directKeys) {
-      const value = data[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim();
-      }
-
-      if (nestedData) {
-        const nestedValue = nestedData[key];
-        if (typeof nestedValue === 'string' && nestedValue.trim().length > 0) {
-          return nestedValue.trim();
-        }
-      }
-    }
-
-    const nombres = typeof data.nombres === 'string' ? data.nombres.trim() : '';
-    const apellidos = typeof data.apellidos === 'string' ? data.apellidos.trim() : '';
-    const composed = `${nombres} ${apellidos}`.trim();
-    if (composed.length > 0) {
-      return composed;
-    }
-
-    if (nestedData) {
-      const firstName = typeof nestedData.first_name === 'string' ? nestedData.first_name.trim() : '';
-      const lastName = typeof nestedData.last_name === 'string' ? nestedData.last_name.trim() : '';
-      const secondLastName = typeof nestedData.second_last_name === 'string' ? nestedData.second_last_name.trim() : '';
-      const nestedComposed = `${firstName} ${lastName} ${secondLastName}`.replace(/\s+/g, ' ').trim();
-      if (nestedComposed.length > 0) {
-        return nestedComposed;
-      }
-    }
-
-    return null;
   }
 
   function normalizeAvatarUrl(rawUrl: string | null | undefined): string | null {
@@ -663,75 +617,6 @@ function App() {
     const baseName = file.name.replace(/\.[^/.]+$/, '') || 'team-logo';
     return new File([blob], `${baseName}.webp`, { type: 'image/webp' });
   }
-
-  async function lookupIdentityFullNameByRut(rutToLookup: string): Promise<string> {
-    if (!supabase) {
-      throw new Error('Supabase no esta configurado para consultar identidad.');
-    }
-
-    const { data, error } = await supabase.functions.invoke('identity-lookup', {
-      body: { rut: rutToLookup }
-    });
-
-    if (error) {
-      const maybeContext = error as { context?: Response; message?: string };
-      if (maybeContext.context) {
-        try {
-          const serverBody = await maybeContext.context.json() as { message?: string };
-          if (serverBody?.message) {
-            throw new Error(serverBody.message);
-          }
-        } catch {
-          // fallback to generic message below
-        }
-      }
-
-      throw new Error(maybeContext.message || 'No fue posible consultar identidad en este momento.');
-    }
-
-    const payload = data as Record<string, unknown> | null;
-    const fullName = inferFullNameFromApiPayload(payload);
-    if (!fullName) {
-      throw new Error('La API no devolvio nombre utilizable para ese RUT.');
-    }
-
-    return fullName;
-  }
-
-  useEffect(() => {
-    if (!needsIdentityOnboarding) {
-      return;
-    }
-
-    const rutToLookup = identityOnboardingForm.rut.trim();
-    if (!isValidRutValue(rutToLookup)) {
-      return;
-    }
-
-    if (rutToLookup === lastLookupRut) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void (async () => {
-        try {
-          setLookupLoading(true);
-          setLookupError(null);
-          const fullName = await lookupIdentityFullNameByRut(rutToLookup);
-          setIdentityOnboardingForm((prev) => ({ ...prev, fullName }));
-          setLastLookupRut(rutToLookup);
-        } catch (error) {
-          setLookupError((error as Error).message);
-        } finally {
-          setLookupLoading(false);
-        }
-      })();
-    }, 450);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [needsIdentityOnboarding, identityOnboardingForm.rut, lastLookupRut]);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -977,7 +862,7 @@ function App() {
       } catch (error) {
         if (active) {
           setOperatorData(null);
-          setMetricsError((error as Error).message);
+          setMetricsError(toFriendlyError(error));
         }
       } finally {
         if (active) {
@@ -1013,7 +898,7 @@ function App() {
     }
 
     if (!identityOnboardingForm.fullName.trim()) {
-      setIdentityOnboardingError('Debes autocompletar o ingresar el nombre legal.');
+      setIdentityOnboardingError('Debes ingresar el nombre legal.');
       return;
     }
 
@@ -1031,7 +916,7 @@ function App() {
         p_email: sessionUserEmail,
         p_age: 18,
         p_autocompleted_full_names: identityOnboardingForm.fullName.trim(),
-        p_names_source: 'sii_api',
+        p_names_source: 'manual_form',
         p_privacy_version: 'priv-v1',
         p_terms_version: 'terms-v1',
         p_data_processing_version: 'dp-v1',
@@ -1104,7 +989,7 @@ function App() {
         }
       }
     } catch (error) {
-      setAuthError((error as Error).message);
+      setAuthError(toFriendlyError(error));
     }
   }
 
@@ -1138,7 +1023,7 @@ function App() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(toFriendlyError(error));
     }
   }
 
@@ -1161,7 +1046,6 @@ function App() {
     try {
       setRegistrationLoading(true);
       setRegistrationError(null);
-      setLookupError(null);
       const idCardStorageUri = `pending://operator-id-documents/${sessionUserId}/${Date.now()}`;
       const resolvedRutSecretKey = rutSecretKey || 'temporary-registration-key-v1';
 
@@ -1528,7 +1412,7 @@ function App() {
             </button>
 
             {authMessage && <p className="page-subtitle auth-message" aria-live="polite">{authMessage}</p>}
-            {authError && <p className="error-text" aria-live="assertive">{authError}</p>}
+            {authError && <p className="error-text" aria-live="assertive">{sanitizeUiMessage(authError)}</p>}
           </div>
         </section>
       </main>
@@ -1572,22 +1456,19 @@ function App() {
                   onChange={(e) => {
                     const formatted = formatRutInput(e.target.value);
                     setIdentityOnboardingForm((prev) => ({ ...prev, rut: formatted }));
-                    setLastLookupRut('');
-                    setLookupError(null);
                   }}
                   placeholder="12.345.678-9"
                   required
                 />
               </label>
               <label className="form-field">
-                Nombre legal (autocompletado API)
+                Nombre legal
                 <input
                   value={identityOnboardingForm.fullName}
                   onChange={(e) => setIdentityOnboardingForm((prev) => ({ ...prev, fullName: e.target.value }))}
                   required
                 />
               </label>
-              {lookupLoading && <p className="page-subtitle">Buscando nombre legal desde API chilena...</p>}
 
               <div className="consent-stack" role="group" aria-label="Consentimientos obligatorios para completar identidad">
                 <label className="consent-check">
@@ -1624,8 +1505,7 @@ function App() {
               </button>
             </form>
 
-            {lookupError && <p className="error-text">{lookupError}</p>}
-            {identityOnboardingError && <p className="error-text">{identityOnboardingError}</p>}
+            {identityOnboardingError && <p className="error-text">{sanitizeUiMessage(identityOnboardingError)}</p>}
 
             <button type="button" className="ghost-btn" onClick={handleLogout}>
               Cerrar sesion
@@ -1732,7 +1612,7 @@ function App() {
               </button>
             </form>
 
-            {registrationError && <p className="error-text">{registrationError}</p>}
+            {registrationError && <p className="error-text">{sanitizeUiMessage(registrationError)}</p>}
             {authMessage && <p className="page-subtitle">{authMessage}</p>}
 
             <button type="button" className="ghost-btn" onClick={handleLogout}>
@@ -1805,7 +1685,7 @@ function App() {
           {activeExperienceSection === 'id' ? (
             <>
               {metricsLoading && <p className="page-subtitle id-sync-text">Sincronizando metricas...</p>}
-              {metricsError && <p className="page-subtitle id-sync-text">Error metricas: {metricsError}</p>}
+              {metricsError && <p className="page-subtitle id-sync-text">Error metricas: {sanitizeUiMessage(metricsError)}</p>}
 
               <div className="id-card-wrap">
                 {operatorData ? (
@@ -1937,7 +1817,7 @@ function App() {
                   </section>
 
                   {editHint && <p className="page-subtitle">{editHint}</p>}
-                  {editError && <p className="error-text">{editError}</p>}
+                  {editError && <p className="error-text">{sanitizeUiMessage(editError)}</p>}
 
                   <button type="submit" className="primary-btn" disabled={editLoading}>
                     {editLoading ? 'Guardando...' : 'Guardar cambios'}

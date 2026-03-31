@@ -2,5 +2,8 @@
   "deno.enable": true,
   "deno.enablePaths": [
     "supabase/functions"
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "npm run dev": true
+  }
 }
