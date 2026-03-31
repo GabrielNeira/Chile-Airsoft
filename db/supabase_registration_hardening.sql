@@ -46,6 +46,76 @@ begin
   end if;
 end $$;
 
+-- Legacy compatibility: some databases still use role/blood_type instead of enum columns.
+alter table public.operator_profiles
+  add column if not exists blood_group public.blood_group,
+  add column if not exists operator_role public.operator_role;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'operator_profiles'
+      and column_name = 'role'
+  ) then
+    execute $sql$
+      update public.operator_profiles
+      set operator_role = case lower(trim(coalesce("role", '')))
+        when 'assault' then 'assault'::public.operator_role
+        when 'sniper' then 'sniper'::public.operator_role
+        when 'medic' then 'medic'::public.operator_role
+        when 'support' then 'support'::public.operator_role
+        when 'dmr' then 'dmr'::public.operator_role
+        when 'breacher' then 'breacher'::public.operator_role
+        when 'recon' then 'recon'::public.operator_role
+        when 'commander' then 'commander'::public.operator_role
+        else 'other'::public.operator_role
+      end
+      where operator_role is null
+    $sql$;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'operator_profiles'
+      and column_name = 'blood_type'
+  ) then
+    execute $sql$
+      update public.operator_profiles
+      set blood_group = case upper(trim(coalesce(blood_type, '')))
+        when 'A+' then 'A+'::public.blood_group
+        when 'A-' then 'A-'::public.blood_group
+        when 'B+' then 'B+'::public.blood_group
+        when 'B-' then 'B-'::public.blood_group
+        when 'AB+' then 'AB+'::public.blood_group
+        when 'AB-' then 'AB-'::public.blood_group
+        when 'O+' then 'O+'::public.blood_group
+        when 'O-' then 'O-'::public.blood_group
+        else blood_group
+      end
+      where blood_group is null
+    $sql$;
+  end if;
+
+  update public.operator_profiles
+  set operator_role = 'assault'::public.operator_role
+  where operator_role is null;
+
+  update public.operator_profiles
+  set blood_group = 'O+'::public.blood_group
+  where blood_group is null;
+
+  alter table public.operator_profiles
+    alter column operator_role set default 'assault'::public.operator_role;
+
+  alter table public.operator_profiles
+    alter column blood_group set default 'O+'::public.blood_group;
+end $$;
+
 -- Identity columns
 alter table public.operator_profiles
   add column if not exists rut_fingerprint text,
@@ -83,16 +153,87 @@ $$;
 
 create or replace function public.compute_rut_fingerprint(p_rut text, p_secret_key text)
 returns text
-language sql
+language plpgsql
 stable
 as $$
-  select encode(
-    digest(
-      convert_to(public.normalize_rut(p_rut) || ':' || p_secret_key, 'UTF8'),
-      'sha256'::text
-    ),
-    'hex'
-  );
+declare
+  v_input text := public.normalize_rut(p_rut) || ':' || p_secret_key;
+  v_ext_schema text;
+  v_hash text;
+begin
+  select n.nspname into v_ext_schema
+  from pg_extension e
+  join pg_namespace n on n.oid = e.extnamespace
+  where e.extname = 'pgcrypto'
+  limit 1;
+
+  if v_ext_schema is null then
+    raise exception 'pgcrypto extension is required';
+  end if;
+
+  execute format(
+    'select encode(%I.digest($1::text, ''sha256''::text), ''hex'')',
+    v_ext_schema
+  ) into v_hash using v_input;
+
+  return v_hash;
+end;
+$$;
+
+create or replace function public.encrypt_rut(plain_rut text, secret_key text)
+returns bytea
+language plpgsql
+stable
+as $$
+declare
+  v_ext_schema text;
+  v_cipher bytea;
+begin
+  select n.nspname into v_ext_schema
+  from pg_extension e
+  join pg_namespace n on n.oid = e.extnamespace
+  where e.extname = 'pgcrypto'
+  limit 1;
+
+  if v_ext_schema is null then
+    raise exception 'pgcrypto extension is required';
+  end if;
+
+  execute format(
+    'select %I.pgp_sym_encrypt($1::text, $2::text)::bytea',
+    v_ext_schema
+  ) into v_cipher using plain_rut, secret_key;
+
+  return v_cipher;
+end;
+$$;
+
+create or replace function public.decrypt_rut(cipher_rut bytea, secret_key text)
+returns text
+language plpgsql
+stable
+as $$
+declare
+  v_ext_schema text;
+  v_plain text;
+begin
+  select n.nspname into v_ext_schema
+  from pg_extension e
+  join pg_namespace n on n.oid = e.extnamespace
+  where e.extname = 'pgcrypto'
+  limit 1;
+
+  if v_ext_schema is null then
+    raise exception 'pgcrypto extension is required';
+  end if;
+
+  execute format(
+    'select %I.pgp_sym_decrypt($1::bytea, $2::text)',
+    v_ext_schema
+  ) into v_plain using cipher_rut, secret_key;
+
+  return v_plain;
+end;
 $$;
 
 create or replace function public.is_valid_rut(p_rut text)

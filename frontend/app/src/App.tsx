@@ -518,6 +518,10 @@ function App() {
       return 'No pudimos completar tu registro porque el backend de perfil no esta sincronizado. Avisa al equipo para aplicar las migraciones de registro.';
     }
 
+    if (rawMessage.toLowerCase().includes('function digest(')) {
+      return 'No pudimos completar tu registro porque falta inicializar la extension de seguridad (pgcrypto) en la base de datos. Ejecuta la migracion de hardening nuevamente.';
+    }
+
     return rawMessage;
   }
 
