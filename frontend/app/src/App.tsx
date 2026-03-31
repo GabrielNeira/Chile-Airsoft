@@ -765,9 +765,9 @@ function App() {
 
         if (!profile) {
           if (active) {
-            const missingIdentity = !resolvedIdentityRut || !resolvedIdentityName;
-            setNeedsIdentityOnboarding(missingIdentity);
-            setNeedsRegistration(false);
+            const hasIdentity = Boolean(resolvedIdentityRut && resolvedIdentityName);
+            setNeedsIdentityOnboarding(!hasIdentity);
+            setNeedsRegistration(hasIdentity);
             setOperatorData(null);
             setMetricsError(null);
             setIdentityOnboardingForm((prev) => ({
@@ -1912,9 +1912,6 @@ function App() {
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
               <button type="button" className="ghost-btn" onClick={() => setShowCredentialModal(false)}>
                 Recordar mas tarde
-              </button>
-              <button type="button" className="ghost-btn" onClick={handleLogout}>
-                Cerrar sesion
               </button>
             </div>
           </div>

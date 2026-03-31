@@ -7,6 +7,45 @@
 
 create extension if not exists pgcrypto;
 
+-- Compatibility: some environments may not have these enums yet.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'operator_role'
+      and n.nspname = 'public'
+  ) then
+    create type public.operator_role as enum (
+      'assault',
+      'sniper',
+      'medic',
+      'support',
+      'dmr',
+      'breacher',
+      'recon',
+      'commander',
+      'other'
+    );
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'blood_group'
+      and n.nspname = 'public'
+  ) then
+    create type public.blood_group as enum (
+      'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
+    );
+  end if;
+end $$;
+
 -- Identity columns
 alter table public.operator_profiles
   add column if not exists rut_fingerprint text,
@@ -47,7 +86,13 @@ returns text
 language sql
 stable
 as $$
-  select encode(digest(public.normalize_rut(p_rut) || ':' || p_secret_key, 'sha256'), 'hex');
+  select encode(
+    digest(
+      convert_to(public.normalize_rut(p_rut) || ':' || p_secret_key, 'UTF8'),
+      'sha256'::text
+    ),
+    'hex'
+  );
 $$;
 
 create or replace function public.is_valid_rut(p_rut text)
