@@ -534,7 +534,7 @@ export default function FieldOperationsConsole({
       .from('user_roles')
       .select('role')
       .eq('user_id', sessionUserId)
-      .in('role', ['organizer', 'super_admin'])
+      .in('role', ['field_admin', 'organizer', 'super_admin'])
       .limit(1);
 
     if (!roleCheckPrimary.error && roleCheckPrimary.data && roleCheckPrimary.data.length > 0) {
@@ -545,7 +545,7 @@ export default function FieldOperationsConsole({
       .from('user_roles')
       .select('user_role')
       .eq('user_id', sessionUserId)
-      .in('user_role', ['organizer', 'super_admin'])
+      .in('user_role', ['field_admin', 'organizer', 'super_admin'])
       .limit(1);
 
     if (!roleCheckLegacy.error && roleCheckLegacy.data && roleCheckLegacy.data.length > 0) {
@@ -1080,8 +1080,16 @@ export default function FieldOperationsConsole({
 
     setBusy(true);
     try {
-      const { error } = await supabase.from('events').delete().eq('id', activeEventId);
+      const { data, error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', activeEventId)
+        .select('id');
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error('No se pudo eliminar el evento. Verifica permisos de admin de cancha para esta operacion.');
+      }
 
       setStatusMessage('Evento eliminado.');
       setActiveEventId('');

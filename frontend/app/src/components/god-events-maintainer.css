@@ -1,0 +1,56 @@
+.god-events-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.god-events-filter-grid label {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  color: #d9efe4;
+  font-size: 13px;
+}
+
+.god-events-filter-grid input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(190, 232, 209, 0.3);
+  background: rgba(6, 12, 13, 0.9);
+  color: #eef8f4;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+
+.god-events-grid {
+  grid-template-columns: 1.1fr 1fr;
+}
+
+.god-events-detail {
+  display: grid;
+  gap: 6px;
+}
+
+.god-events-detail p {
+  margin: 0;
+  color: #d8f3e4;
+}
+
+.god-events-detail input[type='checkbox'] {
+  width: auto;
+  margin-right: 8px;
+}
+
+@media (max-width: 1140px) {
+  .god-events-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .god-events-grid,
+  .god-events-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}

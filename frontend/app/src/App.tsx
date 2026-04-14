@@ -5,11 +5,13 @@ import OperatorCareerHub from './components/OperatorCareerHub';
 import PlayerLevelMetricsPanel from './components/PlayerLevelMetricsPanel';
 import FieldOperationsConsole from './components/FieldOperationsConsole';
 import GodUserMaintainer from './components/GodUserMaintainer';
+import GodEventsMaintainer from './components/GodEventsMaintainer';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 
 type AuthMode = 'login' | 'signup';
 type AdminOpsWorkspace = 'eventos' | 'proceso' | 'scanner' | 'god';
+type GodWorkspace = 'users' | 'events';
 
 interface RegistrationForm {
   nickname: string;
@@ -324,6 +326,7 @@ function App() {
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
   const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations'>('id');
   const [activeAdminWorkspace, setActiveAdminWorkspace] = useState<AdminOpsWorkspace>('eventos');
+  const [activeGodWorkspace, setActiveGodWorkspace] = useState<GodWorkspace>('users');
   const [canAccessFieldOperations, setCanAccessFieldOperations] = useState(false);
   const [fieldOpsAccessResolved, setFieldOpsAccessResolved] = useState(false);
   const [canManageRoles, setCanManageRoles] = useState(false);
@@ -354,7 +357,7 @@ function App() {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .in('role', ['organizer', 'super_admin'])
+      .in('role', ['field_admin', 'organizer', 'super_admin'])
       .limit(1);
 
     if (!roleCheckPrimary.error && roleCheckPrimary.data && roleCheckPrimary.data.length > 0) {
@@ -365,7 +368,7 @@ function App() {
       .from('user_roles')
       .select('user_role')
       .eq('user_id', userId)
-      .in('user_role', ['organizer', 'super_admin'])
+      .in('user_role', ['field_admin', 'organizer', 'super_admin'])
       .limit(1);
 
     if (!roleCheckLegacy.error && roleCheckLegacy.data && roleCheckLegacy.data.length > 0) {
@@ -1899,7 +1902,30 @@ function App() {
 
               {activeAdminWorkspace === 'god' ? (
                 <>
-                  <GodUserMaintainer enabled={isGodAdmin} />
+                  <div className="app-nav-tabs" role="tablist" aria-label="Herramientas de administracion GOD">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeGodWorkspace === 'users'}
+                      className={`app-nav-tab ${activeGodWorkspace === 'users' ? 'is-active' : ''}`}
+                      onClick={() => setActiveGodWorkspace('users')}
+                    >
+                      Usuarios GOD
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeGodWorkspace === 'events'}
+                      className={`app-nav-tab ${activeGodWorkspace === 'events' ? 'is-active' : ''}`}
+                      onClick={() => setActiveGodWorkspace('events')}
+                    >
+                      Eventos GOD
+                    </button>
+                  </div>
+
+                  {activeGodWorkspace === 'users' ? <GodUserMaintainer enabled={isGodAdmin} /> : null}
+                  {activeGodWorkspace === 'events' ? <GodEventsMaintainer enabled={isGodAdmin} /> : null}
+
                   {canManageFieldAdminsByEmail ? (
                     <FieldOperationsConsole
                       operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin god').trim()}
