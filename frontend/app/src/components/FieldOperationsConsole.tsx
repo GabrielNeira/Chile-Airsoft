@@ -631,8 +631,9 @@ export default function FieldOperationsConsole({
       let eventsResExtendedQuery = supabase
         .from('events')
         .select('id,title,event_date,starts_at,ends_at,scheduled_at,max_players,registration_closed_at,field_id,created_at')
+        .order('ends_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
-        .limit(120);
+        .limit(500);
 
       if (!canMaintainAdmins && scopedFieldIds.length > 0) {
         eventsResExtendedQuery = eventsResExtendedQuery.in('field_id', scopedFieldIds);
@@ -658,8 +659,9 @@ export default function FieldOperationsConsole({
           const eventsResFallback = await supabase
             .from('events')
             .select('id,title,event_date,starts_at,ends_at,field_id,created_at')
+            .order('ends_at', { ascending: false, nullsFirst: false })
             .order('created_at', { ascending: false })
-            .limit(120);
+            .limit(500);
 
           eventsRes = {
             data: (eventsResFallback.data as EventRow[] | null) ?? null,
