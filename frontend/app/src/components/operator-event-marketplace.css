@@ -1,0 +1,126 @@
+.operator-events-shell {
+  width: min(100%, 1120px);
+  border: 1px solid rgba(203, 236, 217, 0.2);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(7, 19, 19, 0.52);
+  display: grid;
+  gap: 10px;
+}
+
+.operator-events-header h3 {
+  margin: 0;
+  font-size: 25px;
+}
+
+.operator-events-header p {
+  margin: 4px 0 0;
+  color: #c7dece;
+}
+
+.operator-events-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.operator-events-toolbar input {
+  border-radius: 10px;
+  border: 1px solid rgba(190, 232, 209, 0.3);
+  background: rgba(6, 12, 13, 0.9);
+  color: #eef8f4;
+  padding: 10px;
+}
+
+.operator-events-toolbar button,
+.operator-event-card button {
+  border-radius: 10px;
+  border: 1px solid rgba(150, 233, 191, 0.46);
+  background: linear-gradient(150deg, rgba(58, 132, 92, 0.94), rgba(22, 63, 50, 0.98));
+  color: #f1fff8;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.operator-events-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.operator-event-card {
+  border: 1px solid rgba(204, 231, 217, 0.2);
+  border-radius: 14px;
+  background: rgba(7, 19, 19, 0.74);
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+
+.operator-event-card h4 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.operator-event-field {
+  margin: 0;
+  color: #9ef7c0;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.operator-event-meta {
+  margin: 0;
+  color: #d8f3e4;
+  font-size: 14px;
+}
+
+.operator-event-tag {
+  margin: 4px 0;
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgba(149, 228, 193, 0.45);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #e8fff4;
+}
+
+.operator-event-tag.is-registered {
+  background: rgba(38, 95, 67, 0.65);
+}
+
+.operator-events-muted {
+  color: #bed8cc;
+  margin: 0;
+}
+
+.operator-events-error {
+  margin: 0;
+  color: #ff9f9f;
+}
+
+.operator-events-status {
+  margin: 0;
+  color: #d8f3e4;
+}
+
+.operator-event-card button:disabled,
+.operator-events-toolbar button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .operator-events-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-events-toolbar {
+    grid-template-columns: 1fr;
+  }
+}

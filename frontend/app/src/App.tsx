@@ -1,11 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import OperatorCredentialCard from './components/OperatorCredentialCard';
 import OrganizerScannerView from './components/OrganizerScannerView';
-import OperatorCareerHub from './components/OperatorCareerHub';
-import PlayerLevelMetricsPanel from './components/PlayerLevelMetricsPanel';
 import FieldOperationsConsole from './components/FieldOperationsConsole';
 import GodUserMaintainer from './components/GodUserMaintainer';
 import GodEventsMaintainer from './components/GodEventsMaintainer';
+import OperatorEventMarketplace from './components/OperatorEventMarketplace';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 
@@ -1680,73 +1679,7 @@ function App() {
                 </form>
               )}
 
-              <details className="id-secondary-tools">
-                <summary>Herramientas avanzadas</summary>
-
-                <section className="page-career id-secondary-pane">
-                  <PlayerLevelMetricsPanel
-                    level={3}
-                    rankTitle="Recruit"
-                    xpTotal={2680}
-                    trustedScore={268}
-                    verifiedMetrics={34}
-                    pendingMetrics={3}
-                    attendance30d={8}
-                    chronoValidated30d={6}
-                    fairPlayGreen30d={9}
-                    fairPlayYellow30d={1}
-                    fairPlayRed30d={0}
-                  />
-
-                  <OperatorCareerHub
-                    xpTotal={2680}
-                    level={3}
-                    softTokens={1450}
-                    premiumTokens={80}
-                    equippedSkin="Multicam Pro"
-                    equippedAnimation="Pulse Sweep"
-                    missions={[
-                      {
-                        id: 'm-01',
-                        title: 'Check-in Operativo',
-                        description: 'Registra asistencia en 3 eventos oficiales durante la semana.',
-                        progress: 2,
-                        target: 3,
-                        rewards: '300 XP + 120 Soft',
-                        status: 'active'
-                      },
-                      {
-                        id: 'm-02',
-                        title: 'Fair Play Verde',
-                        description: 'Completa 5 partidas sin penalizaciones.',
-                        progress: 5,
-                        target: 5,
-                        rewards: '500 XP + Badge',
-                        status: 'completed'
-                      },
-                      {
-                        id: 'm-03',
-                        title: 'Crono de Precision',
-                        description: 'Valida crono oficial en 4 jornadas consecutivas.',
-                        progress: 1,
-                        target: 4,
-                        rewards: '250 XP + 1 Skin',
-                        status: 'active'
-                      }
-                    ]}
-                    storeItems={[
-                      { id: 's-01', name: 'Skin Woodland Phantom', rarity: 'Rare', price: '550 Soft' },
-                      { id: 's-02', name: 'Animacion Ghost Pulse', rarity: 'Epic', price: '1200 Soft + 20 Premium' },
-                      { id: 's-03', name: 'Badge Captain CL', rarity: 'Legendary', price: '80 Premium', owned: true }
-                    ]}
-                    achievements={[
-                      { id: 'a-01', title: 'Operador Confiable', unlocked: true, progressLabel: '100% completado' },
-                      { id: 'a-02', title: 'Iron Milsim', unlocked: false, progressLabel: '7 de 12 eventos largos' },
-                      { id: 'a-03', title: 'Disciplina de Campo', unlocked: false, progressLabel: '3 de 10 fair play verde' }
-                    ]}
-                  />
-                </section>
-              </details>
+              <OperatorEventMarketplace enabled={Boolean(sessionUserId)} />
             </>
           ) : canAccessFieldOperations ? (
             <>

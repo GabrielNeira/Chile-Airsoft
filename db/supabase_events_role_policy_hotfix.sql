@@ -137,7 +137,7 @@ begin
     return;
   end if;
 
-  if public.is_super_admin() or public.has_organizer_or_super_role(auth.uid()) then
+  if public.is_super_admin() then
     return query
     select f.id, f.name, f.city
     from public.fields f
@@ -173,7 +173,6 @@ using (
   public.is_super_admin()
   or public.is_field_admin(field_id)
   or public.is_organizer_for_event(id)
-  or created_by = auth.uid()
 );
 
 drop policy if exists events_insert_field_admin on public.events;
@@ -198,7 +197,6 @@ using (
   or (
     public.is_field_admin(field_id)
     or public.is_organizer_for_event(id)
-    or created_by = auth.uid()
   )
 )
 with check (
@@ -206,7 +204,6 @@ with check (
   or (
     public.is_field_admin(field_id)
     or public.is_organizer_for_event(id)
-    or created_by = auth.uid()
   )
 );
 
@@ -220,7 +217,6 @@ using (
   or (
     public.is_field_admin(field_id)
     or public.is_organizer_for_event(id)
-    or created_by = auth.uid()
   )
 );
 
