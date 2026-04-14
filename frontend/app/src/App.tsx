@@ -4,10 +4,12 @@ import OrganizerScannerView from './components/OrganizerScannerView';
 import OperatorCareerHub from './components/OperatorCareerHub';
 import PlayerLevelMetricsPanel from './components/PlayerLevelMetricsPanel';
 import FieldOperationsConsole from './components/FieldOperationsConsole';
+import GodUserMaintainer from './components/GodUserMaintainer';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 
 type AuthMode = 'login' | 'signup';
+type AdminOpsWorkspace = 'eventos' | 'proceso' | 'scanner' | 'god';
 
 interface RegistrationForm {
   nickname: string;
@@ -321,8 +323,12 @@ function App() {
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
   const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations'>('id');
+  const [activeAdminWorkspace, setActiveAdminWorkspace] = useState<AdminOpsWorkspace>('eventos');
   const [canAccessFieldOperations, setCanAccessFieldOperations] = useState(false);
   const [fieldOpsAccessResolved, setFieldOpsAccessResolved] = useState(false);
+  const [canManageRoles, setCanManageRoles] = useState(false);
+  const [canManageFieldAdminsByEmail, setCanManageFieldAdminsByEmail] = useState(false);
+  const [scannerEventId, setScannerEventId] = useState('');
 
   async function resolveFieldOperationsAccessForSession(userId: string): Promise<boolean> {
     if (!supabase) {
@@ -367,6 +373,22 @@ function App() {
     }
 
     return false;
+  }
+
+  async function resolveGodAdminAccessForSession(): Promise<{ canManageRoles: boolean; canManageFieldAdminsByEmail: boolean }> {
+    if (!supabase) {
+      return { canManageRoles: false, canManageFieldAdminsByEmail: false };
+    }
+
+    const [rolesRpc, fieldAdminRpc] = await Promise.all([
+      supabase.rpc('can_manage_roles'),
+      supabase.rpc('can_manage_field_admins_by_email')
+    ]);
+
+    return {
+      canManageRoles: !rolesRpc.error && rolesRpc.data === true,
+      canManageFieldAdminsByEmail: !fieldAdminRpc.error && fieldAdminRpc.data === true
+    };
   }
 
   async function resolveOperatorFromQr(rawQr: string): Promise<{
@@ -674,19 +696,28 @@ function App() {
       if (!supabase || !sessionUserId) {
         if (active) {
           setCanAccessFieldOperations(false);
+          setCanManageRoles(false);
+          setCanManageFieldAdminsByEmail(false);
           setFieldOpsAccessResolved(true);
         }
         return;
       }
 
       try {
-        const allowed = await resolveFieldOperationsAccessForSession(sessionUserId);
+        const [allowed, godAccess] = await Promise.all([
+          resolveFieldOperationsAccessForSession(sessionUserId),
+          resolveGodAdminAccessForSession()
+        ]);
         if (active) {
           setCanAccessFieldOperations(allowed);
+          setCanManageRoles(godAccess.canManageRoles);
+          setCanManageFieldAdminsByEmail(godAccess.canManageFieldAdminsByEmail);
         }
       } catch {
         if (active) {
           setCanAccessFieldOperations(false);
+          setCanManageRoles(false);
+          setCanManageFieldAdminsByEmail(false);
         }
       } finally {
         if (active) {
@@ -708,6 +739,13 @@ function App() {
       setActiveExperienceSection('id');
     }
   }, [canAccessFieldOperations, activeExperienceSection]);
+
+  useEffect(() => {
+    const canAccessGodWorkspace = canManageRoles || canManageFieldAdminsByEmail;
+    if (!canAccessGodWorkspace && activeAdminWorkspace === 'god') {
+      setActiveAdminWorkspace('eventos');
+    }
+  }, [canManageRoles, canManageFieldAdminsByEmail, activeAdminWorkspace]);
 
   useEffect(() => {
     let active = true;
@@ -1013,8 +1051,12 @@ function App() {
     setNeedsIdentityOnboarding(false);
     setShowCredentialModal(false);
     setCanAccessFieldOperations(false);
+    setCanManageRoles(false);
+    setCanManageFieldAdminsByEmail(false);
     setFieldOpsAccessResolved(false);
     setActiveExperienceSection('id');
+    setActiveAdminWorkspace('eventos');
+    setScannerEventId('');
   }
 
   async function handleOAuthLogin(provider: 'google' | 'facebook') {
@@ -1416,6 +1458,12 @@ function App() {
 
   const needsCredentialSetup = needsIdentityOnboarding || needsRegistration;
   const showingIdentityStep = needsIdentityOnboarding;
+  const isGodAdmin = canManageRoles || canManageFieldAdminsByEmail;
+  const activeUserTypeLabel = isGodAdmin
+    ? 'admin god'
+    : canAccessFieldOperations
+      ? 'administrador de cancha'
+      : 'operador';
 
   return (
     <main className="page-shell page-shell-id-focus">
@@ -1424,7 +1472,7 @@ function App() {
         <div className="id-focus-column">
           <h1 className="page-title">ID Airsoft Chile</h1>
           <p className="page-subtitle id-session-subtitle">
-            Sesion activa: {(operatorData?.nickname || editForm.nickname || 'operador').trim()}
+            Sesion activa: {(operatorData?.nickname || editForm.nickname || 'operador').trim()} | Perfil: {activeUserTypeLabel}
           </p>
 
           {needsCredentialSetup ? (
@@ -1699,31 +1747,170 @@ function App() {
             </>
           ) : canAccessFieldOperations ? (
             <>
-              <details className="id-secondary-tools" open>
-                <summary>Escaner QR Operaciones Cancha</summary>
+              <div className="app-nav-tabs" role="tablist" aria-label="Herramientas de administracion de cancha">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeAdminWorkspace === 'eventos'}
+                  className={`app-nav-tab ${activeAdminWorkspace === 'eventos' ? 'is-active' : ''}`}
+                  onClick={() => setActiveAdminWorkspace('eventos')}
+                >
+                  Crear y Gestionar Evento
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeAdminWorkspace === 'proceso'}
+                  className={`app-nav-tab ${activeAdminWorkspace === 'proceso' ? 'is-active' : ''}`}
+                  onClick={() => setActiveAdminWorkspace('proceso')}
+                >
+                  Proceso Partida
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeAdminWorkspace === 'scanner'}
+                  className={`app-nav-tab ${activeAdminWorkspace === 'scanner' ? 'is-active' : ''}`}
+                  onClick={() => setActiveAdminWorkspace('scanner')}
+                >
+                  Escaner QR
+                </button>
+                {isGodAdmin ? (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeAdminWorkspace === 'god'}
+                    className={`app-nav-tab ${activeAdminWorkspace === 'god' ? 'is-active' : ''}`}
+                    onClick={() => setActiveAdminWorkspace('god')}
+                  >
+                    Admin GOD
+                  </button>
+                ) : null}
+              </div>
 
-                <div className="scanner-pane id-secondary-pane">
-                  <OrganizerScannerView
-                    eventId="EVT-LOCAL-001"
-                    onResolveQr={resolveOperatorFromQr}
-                    onCheckin={async () => {
-                      await Promise.resolve();
-                    }}
-                    onChronoValidate={async () => {
-                      await Promise.resolve();
-                    }}
-                    onFairPlayReport={async () => {
-                      await Promise.resolve();
-                    }}
-                  />
-                </div>
-              </details>
+              {activeAdminWorkspace === 'eventos' ? (
+                <FieldOperationsConsole
+                  operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin cancha').trim()}
+                  operatorCredentialId={operatorData?.credentialId}
+                  sessionUserId={sessionUserId}
+                  allowedViews={['evento']}
+                  initialView="evento"
+                />
+              ) : null}
 
-              <FieldOperationsConsole
-                operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin cancha').trim()}
-                operatorCredentialId={operatorData?.credentialId}
-                sessionUserId={sessionUserId}
-              />
+              {activeAdminWorkspace === 'proceso' ? (
+                <FieldOperationsConsole
+                  operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin cancha').trim()}
+                  operatorCredentialId={operatorData?.credentialId}
+                  sessionUserId={sessionUserId}
+                  allowedViews={['equipos', 'partidas', 'tarjetas']}
+                  initialView="equipos"
+                />
+              ) : null}
+
+              {activeAdminWorkspace === 'scanner' ? (
+                <details className="id-secondary-tools" open>
+                  <summary>Escaner QR (herramienta independiente)</summary>
+                  <div className="scanner-pane id-secondary-pane" style={{ display: 'grid', gap: '0.75rem' }}>
+                    <label style={{ display: 'grid', gap: '0.25rem', textAlign: 'left' }}>
+                      ID Evento a operar
+                      <input
+                        value={scannerEventId}
+                        onChange={(event) => setScannerEventId(event.target.value)}
+                        placeholder="UUID del evento"
+                      />
+                    </label>
+
+                    <OrganizerScannerView
+                      eventId={scannerEventId.trim() || 'SIN-EVENTO'}
+                      onResolveQr={resolveOperatorFromQr}
+                      onCheckin={async ({ eventId, operatorUserId }) => {
+                        if (!supabase) {
+                          throw new Error('Supabase no disponible.');
+                        }
+
+                        if (!eventId || eventId === 'SIN-EVENTO') {
+                          throw new Error('Debes indicar un ID de evento valido.');
+                        }
+
+                        const { error } = await supabase.from('event_checkins').upsert(
+                          {
+                            event_id: eventId,
+                            operator_user_id: operatorUserId,
+                            checked_in_by: sessionUserId,
+                            checkin_source: 'scanner_qr'
+                          },
+                          { onConflict: 'event_id,operator_user_id' }
+                        );
+
+                        if (error) {
+                          throw error;
+                        }
+                      }}
+                      onChronoValidate={async ({ eventId, operatorUserId, replicaId, fps, joules, bbWeightG, note }) => {
+                        if (!supabase) {
+                          throw new Error('Supabase no disponible.');
+                        }
+
+                        if (!eventId || eventId === 'SIN-EVENTO') {
+                          throw new Error('Debes indicar un ID de evento valido.');
+                        }
+
+                        const { error } = await supabase.from('chrono_validations').insert({
+                          event_id: eventId,
+                          operator_user_id: operatorUserId,
+                          replica_id: replicaId,
+                          fps,
+                          joules,
+                          bb_weight_g: bbWeightG,
+                          note: note || null,
+                          measured_by: sessionUserId
+                        });
+
+                        if (error) {
+                          throw error;
+                        }
+                      }}
+                      onFairPlayReport={async ({ eventId, operatorUserId, status, reason }) => {
+                        if (!supabase) {
+                          throw new Error('Supabase no disponible.');
+                        }
+
+                        if (!eventId || eventId === 'SIN-EVENTO') {
+                          throw new Error('Debes indicar un ID de evento valido.');
+                        }
+
+                        const { error } = await supabase.from('fair_play_reports').insert({
+                          event_id: eventId,
+                          operator_user_id: operatorUserId,
+                          status,
+                          reason: reason || null,
+                          reported_by: sessionUserId
+                        });
+
+                        if (error) {
+                          throw error;
+                        }
+                      }}
+                    />
+                  </div>
+                </details>
+              ) : null}
+
+              {activeAdminWorkspace === 'god' ? (
+                <>
+                  <GodUserMaintainer enabled={isGodAdmin} />
+                  {canManageFieldAdminsByEmail ? (
+                    <FieldOperationsConsole
+                      operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin god').trim()}
+                      operatorCredentialId={operatorData?.credentialId}
+                      sessionUserId={sessionUserId}
+                      allowedViews={['superadmin']}
+                      initialView="superadmin"
+                    />
+                  ) : null}
+                </>
+              ) : null}
             </>
           ) : (
             <p className="page-subtitle id-sync-text">

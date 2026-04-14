@@ -5,13 +5,15 @@ import './field-operations-console.css';
 type TeamSlot = 'alpha' | 'bravo' | 'reserve';
 type CardType = 'green' | 'yellow' | 'red';
 type MatchStatus = 'planned' | 'running' | 'finished';
-type BoardView = 'evento' | 'equipos' | 'partidas' | 'tarjetas';
+type BoardView = 'evento' | 'equipos' | 'partidas' | 'tarjetas' | 'superadmin';
 type PlayerKind = 'operator' | 'guest';
 
 interface FieldOperationsConsoleProps {
   operatorNickname: string;
   operatorCredentialId?: string;
   sessionUserId: string;
+  allowedViews?: BoardView[];
+  initialView?: BoardView;
 }
 
 interface FieldRow {
@@ -26,6 +28,9 @@ interface EventRow {
   event_date: string;
   starts_at: string | null;
   ends_at: string | null;
+  scheduled_at?: string | null;
+  max_players?: number | null;
+  registration_closed_at?: string | null;
   field_id: string;
   created_at: string;
 }
@@ -161,12 +166,6 @@ interface PaidRegistrationRow {
   metadata: Record<string, unknown> | null;
 }
 
-interface QrPayload {
-  userId?: string;
-  nickname?: string;
-  token?: string;
-}
-
 interface MetricRowRaw {
   operator_user_id: string;
   total_confirmed_events?: number | null;
@@ -239,37 +238,36 @@ function buildGuestNickname(normalizedRut: string, fallbackNickname: string): st
   return 'Invitado sin registro';
 }
 
-function parseQrPayload(rawQr: string): QrPayload {
-  const trimmed = rawQr.trim();
-  if (!trimmed) {
-    throw new Error('Debes escanear o pegar un QR/token.');
+function toIsoDateTime(dateValue: string, timeValue: string): string | null {
+  const dateToken = dateValue.trim();
+  const timeToken = timeValue.trim();
+  if (!dateToken || !timeToken) {
+    return null;
   }
 
-  if (trimmed.startsWith('{')) {
-    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-    const userId = String(parsed.userId ?? parsed.operatorUserId ?? parsed.id ?? '').trim();
-    const nickname = String(parsed.nickname ?? parsed.handle ?? '').trim();
-    const token = String(parsed.token ?? parsed.credential ?? '').trim();
-
-    return {
-      userId: userId || undefined,
-      nickname: nickname || undefined,
-      token: token || undefined
-    };
+  const safeTime = /^\d{2}:\d{2}$/.test(timeToken) ? timeToken : `${timeToken}:00`;
+  const candidate = `${dateToken}T${safeTime}:00`;
+  const parsed = new Date(candidate);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
   }
 
-  const chunks = trimmed.split('|').map((chunk) => chunk.trim()).filter(Boolean);
-  if (chunks.length >= 2) {
-    return {
-      userId: chunks[0] || undefined,
-      nickname: chunks[1] || undefined,
-      token: chunks[2] || undefined
-    };
+  return parsed.toISOString();
+}
+
+function toInputTimeLabel(isoValue: string | null | undefined): string {
+  if (!isoValue) {
+    return '';
   }
 
-  return {
-    token: trimmed
-  };
+  const parsed = new Date(isoValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  const hh = String(parsed.getHours()).padStart(2, '0');
+  const mm = String(parsed.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 function mapError(error: unknown): string {
@@ -303,21 +301,28 @@ function isMissingRpcError(error: { code?: string; message?: string } | null): b
 export default function FieldOperationsConsole({
   operatorNickname,
   operatorCredentialId,
-  sessionUserId
+  sessionUserId,
+  allowedViews,
+  initialView
 }: FieldOperationsConsoleProps) {
-  const [activeView, setActiveView] = useState<BoardView>('evento');
+  const [activeView, setActiveView] = useState<BoardView>(initialView ?? 'evento');
   const [fields, setFields] = useState<FieldRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [activeEventId, setActiveEventId] = useState('');
 
   const [eventTitle, setEventTitle] = useState('Jornada Airsoft');
   const [eventDate, setEventDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [eventTime, setEventTime] = useState('09:00');
+  const [eventMaxPlayers, setEventMaxPlayers] = useState('40');
   const [eventFieldId, setEventFieldId] = useState('');
 
-  const [qrInput, setQrInput] = useState('');
+  const [eventEditTitle, setEventEditTitle] = useState('');
+  const [eventEditDate, setEventEditDate] = useState('');
+  const [eventEditTime, setEventEditTime] = useState('');
+  const [eventEditMaxPlayers, setEventEditMaxPlayers] = useState('');
+
   const [rutInput, setRutInput] = useState('');
-  const [operatorIdInput, setOperatorIdInput] = useState('');
-  const [nicknameFallback, setNicknameFallback] = useState('');
+  const [playerNameInput, setPlayerNameInput] = useState('');
   const [allowGuestRegistration, setAllowGuestRegistration] = useState(false);
   const [guestIsMinor, setGuestIsMinor] = useState(false);
 
@@ -349,10 +354,34 @@ export default function FieldOperationsConsole({
   const [fieldAdminEmailInput, setFieldAdminEmailInput] = useState('');
   const [fieldAdmins, setFieldAdmins] = useState<FieldAdminRow[]>([]);
   const [fieldAdminBusy, setFieldAdminBusy] = useState(false);
+  const isHomuraSuperAdmin = canManageFieldAdmins;
 
   const activeEvent = useMemo(
     () => events.find((eventItem) => eventItem.id === activeEventId) ?? null,
     [activeEventId, events]
+  );
+
+  const registrationLocked = Boolean(activeEvent?.registration_closed_at || activeEvent?.ends_at);
+
+  const availableViews = useMemo(() => {
+    const baseViews: BoardView[] = [
+      'evento',
+      'equipos',
+      'partidas',
+      'tarjetas',
+      ...(isHomuraSuperAdmin ? (['superadmin'] as BoardView[]) : [])
+    ];
+
+    if (!allowedViews || allowedViews.length === 0) {
+      return baseViews;
+    }
+
+    return baseViews.filter((view) => allowedViews.includes(view));
+  }, [allowedViews, isHomuraSuperAdmin]);
+
+  const selectableEvents = useMemo(
+    () => events.filter((eventItem) => !eventItem.ends_at),
+    [events]
   );
 
   const runningMatch = useMemo(
@@ -378,6 +407,31 @@ export default function FieldOperationsConsole({
     setSelectedPlayerActive(selectedPlayer.isActiveInEvent);
   }, [selectedPlayer]);
 
+  useEffect(() => {
+    if (availableViews.length === 0) {
+      return;
+    }
+
+    if (!availableViews.includes(activeView)) {
+      setActiveView(availableViews[0]);
+    }
+  }, [availableViews, activeView]);
+
+  useEffect(() => {
+    if (!activeEvent) {
+      setEventEditTitle('');
+      setEventEditDate('');
+      setEventEditTime('');
+      setEventEditMaxPlayers('');
+      return;
+    }
+
+    setEventEditTitle(activeEvent.title);
+    setEventEditDate(activeEvent.event_date);
+    setEventEditTime(toInputTimeLabel(activeEvent.scheduled_at));
+    setEventEditMaxPlayers(activeEvent.max_players ? String(activeEvent.max_players) : '');
+  }, [activeEvent]);
+
   const teamBuckets = useMemo(() => {
     const alpha = players.filter((player) => player.teamSlot === 'alpha');
     const bravo = players.filter((player) => player.teamSlot === 'bravo');
@@ -390,16 +444,6 @@ export default function FieldOperationsConsole({
       .filter((match) => match.status === 'finished')
       .reduce((acc, match) => acc + Math.max(0, match.duration_seconds ?? 0), 0);
   }, [matches]);
-
-  const paidPendingCount = useMemo(
-    () => paidRegistrations.filter((registration) => registration.registration_status === 'paid').length,
-    [paidRegistrations]
-  );
-
-  const paidPresentCount = useMemo(
-    () => paidRegistrations.filter((registration) => registration.registration_status === 'present').length,
-    [paidRegistrations]
-  );
 
   const elapsedLabel = useMemo(() => {
     if (!runningMatch?.starts_at) {
@@ -524,20 +568,49 @@ export default function FieldOperationsConsole({
       const canMaintainAdmins = !maintainRpc.error && maintainRpc.data === true;
       setCanManageFieldAdmins(canMaintainAdmins);
 
-      const [fieldsRes, eventsRes] = await Promise.all([
-        supabase.from('fields').select('id,name,city').order('name'),
-        supabase
-          .from('events')
-          .select('id,title,event_date,starts_at,ends_at,field_id,created_at')
-          .order('created_at', { ascending: false })
-          .limit(80)
-      ]);
+      const fieldsResPromise = supabase.from('fields').select('id,name,city').order('name');
+      const eventsResExtended = await supabase
+        .from('events')
+        .select('id,title,event_date,starts_at,ends_at,scheduled_at,max_players,registration_closed_at,field_id,created_at')
+        .order('created_at', { ascending: false })
+        .limit(80);
+
+      let eventsRes: {
+        data: EventRow[] | null;
+        error: { message?: string } | null;
+      } = {
+        data: (eventsResExtended.data as EventRow[] | null) ?? null,
+        error: eventsResExtended.error as { message?: string } | null
+      };
+
+      if (eventsRes.error) {
+        const message = (eventsRes.error.message ?? '').toLowerCase();
+        if (
+          message.includes('scheduled_at')
+          || message.includes('max_players')
+          || message.includes('registration_closed_at')
+        ) {
+          const eventsResFallback = await supabase
+            .from('events')
+            .select('id,title,event_date,starts_at,ends_at,field_id,created_at')
+            .order('created_at', { ascending: false })
+            .limit(80);
+
+          eventsRes = {
+            data: (eventsResFallback.data as EventRow[] | null) ?? null,
+            error: eventsResFallback.error as { message?: string } | null
+          };
+        }
+      }
+
+      const fieldsRes = await fieldsResPromise;
 
       if (fieldsRes.error) throw fieldsRes.error;
       if (eventsRes.error) throw eventsRes.error;
 
       const nextFields = (fieldsRes.data as FieldRow[] | null) ?? [];
       const nextEvents = (eventsRes.data as EventRow[] | null) ?? [];
+      const nextSelectableEvents = nextEvents.filter((eventItem) => !eventItem.ends_at);
 
       setFields(nextFields);
       setEvents(nextEvents);
@@ -549,9 +622,7 @@ export default function FieldOperationsConsole({
         }
       }
 
-      if (nextEvents.length > 0) {
-        setActiveEventId(nextEvents[0].id);
-      }
+      setActiveEventId(nextSelectableEvents[0]?.id ?? '');
     } catch (error) {
       setStatusMessage(mapError(error));
     } finally {
@@ -900,23 +971,195 @@ export default function FieldOperationsConsole({
 
     setBusy(true);
     try {
-      const { data, error } = await supabase
+      const scheduledAt = toIsoDateTime(eventDate, eventTime);
+      const parsedMaxPlayers = Number(eventMaxPlayers);
+      const maxPlayersValue = Number.isFinite(parsedMaxPlayers) && parsedMaxPlayers > 0
+        ? Math.floor(parsedMaxPlayers)
+        : null;
+
+      let createRes = await supabase
         .from('events')
         .insert({
           field_id: eventFieldId,
           title: eventTitle.trim(),
           event_date: eventDate,
+          scheduled_at: scheduledAt,
+          max_players: maxPlayersValue,
           created_by: sessionUserId
         })
-        .select('id,title,event_date,starts_at,ends_at,field_id,created_at')
+        .select('id,title,event_date,starts_at,ends_at,scheduled_at,max_players,registration_closed_at,field_id,created_at')
         .single();
+
+      if (createRes.error) {
+        const message = createRes.error.message.toLowerCase();
+        if (message.includes('scheduled_at') || message.includes('max_players')) {
+          createRes = await supabase
+            .from('events')
+            .insert({
+              field_id: eventFieldId,
+              title: eventTitle.trim(),
+              event_date: eventDate,
+              created_by: sessionUserId
+            })
+            .select('id,title,event_date,starts_at,ends_at,field_id,created_at')
+            .single();
+        }
+      }
+
+      const { data, error } = createRes;
 
       if (error) throw error;
 
       const nextEvent = data as EventRow;
       setEvents((prev) => [nextEvent, ...prev]);
       setActiveEventId(nextEvent.id);
-      setStatusMessage(`Evento ${nextEvent.title} creado. Puedes registrar jugadores de inmediato.`);
+      setStatusMessage(`Evento ${nextEvent.title} creado. Continua con el cierre de inscripciones cuando corresponda.`);
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUpdateActiveEvent() {
+    if (!supabase || !activeEventId || !activeEvent) {
+      return;
+    }
+
+    const parsedMaxPlayers = Number(eventEditMaxPlayers);
+    const maxPlayersValue = Number.isFinite(parsedMaxPlayers) && parsedMaxPlayers > 0
+      ? Math.floor(parsedMaxPlayers)
+      : null;
+    const scheduledAt = toIsoDateTime(eventEditDate || activeEvent.event_date, eventEditTime);
+
+    setBusy(true);
+    try {
+      let updateRes = await supabase
+        .from('events')
+        .update({
+          title: eventEditTitle.trim() || activeEvent.title,
+          event_date: eventEditDate || activeEvent.event_date,
+          scheduled_at: scheduledAt,
+          max_players: maxPlayersValue
+        })
+        .eq('id', activeEventId);
+
+      if (updateRes.error) {
+        const message = updateRes.error.message.toLowerCase();
+        if (message.includes('scheduled_at') || message.includes('max_players')) {
+          updateRes = await supabase
+            .from('events')
+            .update({
+              title: eventEditTitle.trim() || activeEvent.title,
+              event_date: eventEditDate || activeEvent.event_date
+            })
+            .eq('id', activeEventId);
+        }
+      }
+
+      if (updateRes.error) throw updateRes.error;
+
+      setStatusMessage('Evento actualizado correctamente.');
+      await loadInitialData();
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDeleteActiveEvent() {
+    if (!supabase || !activeEventId || !activeEvent) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Eliminar evento ${activeEvent.title}? Esta accion no se puede deshacer.`);
+    if (!confirmed) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const { error } = await supabase.from('events').delete().eq('id', activeEventId);
+      if (error) throw error;
+
+      setStatusMessage('Evento eliminado.');
+      setActiveEventId('');
+      await loadInitialData();
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCloseRegistrations() {
+    if (!supabase || !activeEventId || !activeEvent) {
+      return;
+    }
+
+    if (activeEvent.ends_at) {
+      setStatusMessage('El evento ya esta cerrado en forma definitiva.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      let updateRes = await supabase
+        .from('events')
+        .update({ registration_closed_at: new Date().toISOString() })
+        .eq('id', activeEventId);
+
+      if (updateRes.error) {
+        const message = updateRes.error.message.toLowerCase();
+        if (message.includes('registration_closed_at')) {
+          throw new Error('Falta columna registration_closed_at. Ejecuta migracion de flujo de eventos para cerrar inscripciones.');
+        }
+      }
+
+      if (updateRes.error) throw updateRes.error;
+
+      setStatusMessage('Inscripciones cerradas. Desde ahora no se permiten nuevos registros de operadores.');
+      await loadInitialData();
+      await loadEventData(activeEventId);
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCloseEvent() {
+    if (!supabase || !activeEventId || !activeEvent) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const endedAt = new Date().toISOString();
+      let updateRes = await supabase
+        .from('events')
+        .update({
+          registration_closed_at: activeEvent.registration_closed_at ?? endedAt,
+          ends_at: endedAt
+        })
+        .eq('id', activeEventId);
+
+      if (updateRes.error) {
+        const message = updateRes.error.message.toLowerCase();
+        if (message.includes('registration_closed_at')) {
+          updateRes = await supabase
+            .from('events')
+            .update({ ends_at: endedAt })
+            .eq('id', activeEventId);
+        }
+      }
+
+      if (updateRes.error) throw updateRes.error;
+
+      setStatusMessage('Evento cerrado correctamente.');
+      await loadInitialData();
+      await loadEventData(activeEventId);
     } catch (error) {
       setStatusMessage(mapError(error));
     } finally {
@@ -1239,69 +1482,11 @@ export default function FieldOperationsConsole({
       throw new Error('Supabase no disponible.');
     }
 
-    const rawId = operatorIdInput.trim();
     const normalizedRut = normalizeRut(rutInput);
-    const fallback = nicknameFallback.trim();
+    const playerName = playerNameInput.trim();
 
-    let payload: QrPayload | null = null;
-    if (qrInput.trim()) {
-      payload = parseQrPayload(qrInput);
-    }
-
-    const candidateUserId = payload?.userId || rawId;
-    if (candidateUserId && UUID_RE.test(candidateUserId)) {
-      const { data, error } = await supabase
-        .from('operator_profiles')
-        .select('user_id,nickname,operator_role,blood_group,team')
-        .eq('user_id', candidateUserId)
-        .maybeSingle();
-
-      if (!error && data) {
-        const operator = data as {
-          user_id: string;
-          nickname: string;
-          operator_role: string;
-          blood_group: string;
-          team: string | null;
-        };
-
-        return {
-          kind: 'operator',
-          userId: operator.user_id,
-          nickname: operator.nickname,
-          role: operator.operator_role,
-          bloodGroup: operator.blood_group,
-          teamHint: operator.team ?? undefined
-        };
-      }
-    }
-
-    const credentialToken = payload?.token || rawId;
-    if (credentialToken) {
-      const { data, error } = await supabase
-        .from('operator_profiles')
-        .select('user_id,nickname,operator_role,blood_group,team')
-        .eq('credential_code', credentialToken)
-        .limit(1);
-
-      if (!error && data && data[0]) {
-        const operator = data[0] as {
-          user_id: string;
-          nickname: string;
-          operator_role: string;
-          blood_group: string;
-          team: string | null;
-        };
-
-        return {
-          kind: 'operator',
-          userId: operator.user_id,
-          nickname: operator.nickname,
-          role: operator.operator_role,
-          bloodGroup: operator.blood_group,
-          teamHint: operator.team ?? undefined
-        };
-      }
+    if (!normalizedRut && !playerName) {
+      throw new Error('Ingresa al menos nombre o RUT para registrar.');
     }
 
     if (normalizedRut.length >= 8) {
@@ -1343,12 +1528,11 @@ export default function FieldOperationsConsole({
       }
     }
 
-    const nicknameCandidate = payload?.nickname || fallback;
-    if (nicknameCandidate) {
+    if (playerName) {
       const { data, error } = await supabase
         .from('operator_profiles')
         .select('user_id,nickname,operator_role,blood_group,team')
-        .eq('nickname', nicknameCandidate)
+        .ilike('nickname', playerName)
         .limit(1);
 
       if (!error && data && data[0]) {
@@ -1375,11 +1559,16 @@ export default function FieldOperationsConsole({
       throw new Error('No se encontro operador con los datos entregados. Activa modo invitado para registrarlo sin historial.');
     }
 
-    return resolveGuestPlayer(normalizedRut, payload?.nickname || fallback);
+    return resolveGuestPlayer(normalizedRut, playerName);
   }
 
   async function handleRegisterPlayer() {
     if (!activeEventId || !supabase) {
+      return;
+    }
+
+    if (registrationLocked) {
+      setStatusMessage('Inscripciones cerradas para este evento. No se admiten nuevos operadores.');
       return;
     }
 
@@ -1401,7 +1590,7 @@ export default function FieldOperationsConsole({
               event_id: activeEventId,
               operator_user_id: player.userId,
               checked_in_by: sessionUserId,
-              checkin_source: qrInput.trim() ? 'qr_scan' : rutInput.trim() ? 'rut_lookup' : 'manual'
+              checkin_source: rutInput.trim() ? 'rut_lookup' : 'manual'
             },
             { onConflict: 'event_id,operator_user_id' }
           );
@@ -1438,10 +1627,8 @@ export default function FieldOperationsConsole({
         if (guestTeamError) throw guestTeamError;
       }
 
-      setQrInput('');
       setRutInput('');
-      setOperatorIdInput('');
-      setNicknameFallback('');
+      setPlayerNameInput('');
       setAllowGuestRegistration(false);
       setGuestIsMinor(false);
       setStatusMessage(`${player.nickname} registrado en el evento.`);
@@ -1572,6 +1759,11 @@ export default function FieldOperationsConsole({
 
   async function handleStartMatch() {
     if (!activeEventId || !supabase) {
+      return;
+    }
+
+    if (activeEvent?.ends_at) {
+      setStatusMessage('El evento ya esta cerrado. No se pueden iniciar partidas.');
       return;
     }
 
@@ -1733,8 +1925,7 @@ export default function FieldOperationsConsole({
 
       if (error) throw error;
 
-      await supabase.from('events').update({ ends_at: endedAt }).eq('id', activeEventId);
-      setStatusMessage(`Partida cerrada. Ganador ${TEAM_LABEL[winnerTeam]}.`);
+      setStatusMessage(`Partida cerrada. Ganador ${TEAM_LABEL[winnerTeam]}. Continua con tarjetas y cierre final del evento.`);
       await loadEventData(activeEventId);
     } catch (error) {
       setStatusMessage(mapError(error));
@@ -1887,25 +2078,40 @@ export default function FieldOperationsConsole({
         </p>
       ) : null}
 
-      <nav className="ops-view-tabs" aria-label="Secciones operaciones">
-        {(['evento', 'equipos', 'partidas', 'tarjetas'] as BoardView[]).map((view) => (
-          <button
-            key={view}
-            type="button"
-            className={`ops-view-tab ${activeView === view ? 'is-active' : ''}`}
-            onClick={() => setActiveView(view)}
-          >
-            {view.toUpperCase()}
-          </button>
-        ))}
-      </nav>
+      {availableViews.length > 1 ? (
+        <nav className="ops-view-tabs" aria-label="Secciones operaciones">
+          {availableViews.map((view) => (
+            <button
+              key={view}
+              type="button"
+              className={`ops-view-tab ${activeView === view ? 'is-active' : ''}`}
+              onClick={() => setActiveView(view)}
+            >
+              {view.toUpperCase()}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       {activeView === 'evento' && (
         <section className="ops-pane" aria-label="Panel evento">
           <div className="ops-pane-head">
             <h3>Evento y Registro</h3>
-            <p>Crea el evento y registra jugadores con perfil o invitados por QR, RUT, nickname o ID.</p>
+            <p>Flujo sugerido: crear evento, cerrar inscripciones, operar partida y cerrar evento.</p>
           </div>
+
+          <article className="ops-card">
+            <h4>Checklist de proceso</h4>
+            <ul className="ops-list">
+              <li>{activeEvent ? '1) Evento creado' : '1) Crear evento'}</li>
+              <li>{registrationLocked ? '2) Inscripciones cerradas' : '2) Cerrar inscripciones cuando corresponda'}</li>
+              <li>{players.length > 0 ? '3) Operadores registrados' : '3) Registrar operadores'}</li>
+              <li>{teamBuckets.alpha.length > 0 && teamBuckets.bravo.length > 0 ? '4) Equipos asignados' : '4) Asignar equipos'}</li>
+              <li>{matches.some((match) => match.status === 'finished' && match.winner_team) ? '5) Ganador definido' : '5) Definir ganador en cierre de partida'}</li>
+              <li>{cards.length > 0 ? '6) Tarjetas aplicadas (si corresponde)' : '6) Aplicar tarjetas de premio/penalizacion'}</li>
+              <li>{activeEvent?.ends_at ? '7) Evento cerrado' : '7) Cerrar evento al finalizar'}</li>
+            </ul>
+          </article>
 
           <section className="ops-grid ops-grid-top">
             <article className="ops-card">
@@ -1929,6 +2135,20 @@ export default function FieldOperationsConsole({
                   Fecha
                   <input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
                 </label>
+                <label>
+                  Hora
+                  <input type="time" value={eventTime} onChange={(event) => setEventTime(event.target.value)} />
+                </label>
+                <label>
+                  Cupo jugadores
+                  <input
+                    type="number"
+                    min={1}
+                    value={eventMaxPlayers}
+                    onChange={(event) => setEventMaxPlayers(event.target.value)}
+                    placeholder="40"
+                  />
+                </label>
                 <button type="submit" disabled={busy}>Crear evento</button>
               </form>
             </article>
@@ -1936,7 +2156,7 @@ export default function FieldOperationsConsole({
             <article className="ops-card">
               <h4>Evento activo</h4>
               <div className="ops-event-list" role="listbox" aria-label="Lista de eventos">
-                {events.map((eventItem) => {
+                {selectableEvents.map((eventItem) => {
                   const isActive = eventItem.id === activeEventId;
                   return (
                     <button
@@ -1950,7 +2170,53 @@ export default function FieldOperationsConsole({
                     </button>
                   );
                 })}
+                {selectableEvents.length === 0 ? <p className="ops-muted">No hay eventos abiertos para operar.</p> : null}
               </div>
+
+              {activeEvent ? (
+                <div className="ops-grid" style={{ gap: '8px' }}>
+                  <p className="ops-muted">Creado: {new Date(activeEvent.created_at).toLocaleString('es-CL')}</p>
+                  <p className="ops-muted">Cierre inscripciones: {activeEvent.registration_closed_at ? new Date(activeEvent.registration_closed_at).toLocaleString('es-CL') : 'abiertas'}</p>
+                  <p className="ops-muted">Cierre evento: {activeEvent.ends_at ? new Date(activeEvent.ends_at).toLocaleString('es-CL') : 'pendiente'}</p>
+
+                  <label>
+                    Editar nombre
+                    <input value={eventEditTitle} onChange={(event) => setEventEditTitle(event.target.value)} />
+                  </label>
+                  <label>
+                    Editar fecha
+                    <input type="date" value={eventEditDate} onChange={(event) => setEventEditDate(event.target.value)} />
+                  </label>
+                  <label>
+                    Editar hora
+                    <input type="time" value={eventEditTime} onChange={(event) => setEventEditTime(event.target.value)} />
+                  </label>
+                  <label>
+                    Editar cupo
+                    <input
+                      type="number"
+                      min={1}
+                      value={eventEditMaxPlayers}
+                      onChange={(event) => setEventEditMaxPlayers(event.target.value)}
+                    />
+                  </label>
+
+                  <div className="ops-inline-actions">
+                    <button type="button" disabled={busy} onClick={() => void handleUpdateActiveEvent()}>
+                      Guardar evento
+                    </button>
+                    <button type="button" disabled={busy || registrationLocked} onClick={() => void handleCloseRegistrations()}>
+                      Cerrar inscripciones
+                    </button>
+                    <button type="button" disabled={busy || Boolean(activeEvent.ends_at)} onClick={() => void handleCloseEvent()}>
+                      Cerrar evento
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => void handleDeleteActiveEvent()}>
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </article>
           </section>
 
@@ -1958,12 +2224,13 @@ export default function FieldOperationsConsole({
             <article className="ops-card">
               <h4>Registro de jugador</h4>
               <p className="ops-muted">Si no existe perfil, puedes activarlo como invitado o menor sin historial.</p>
+              {registrationLocked ? <p className="ops-muted">Inscripciones cerradas: este bloque queda solo en lectura.</p> : null}
               <label>
-                QR / token
+                Nombre
                 <input
-                  value={qrInput}
-                  onChange={(event) => setQrInput(event.target.value)}
-                  placeholder="JSON o userId|nickname|token"
+                  value={playerNameInput}
+                  onChange={(event) => setPlayerNameInput(event.target.value)}
+                  placeholder="Ej: Ghost, Valkiria"
                 />
               </label>
               <label>
@@ -1974,27 +2241,12 @@ export default function FieldOperationsConsole({
                   placeholder="12.345.678-5"
                 />
               </label>
-              <label>
-                ID operador / credencial
-                <input
-                  value={operatorIdInput}
-                  onChange={(event) => setOperatorIdInput(event.target.value)}
-                  placeholder="UUID o credential_code"
-                />
-              </label>
-              <label>
-                Nickname manual / invitado
-                <input
-                  value={nicknameFallback}
-                  onChange={(event) => setNicknameFallback(event.target.value)}
-                  placeholder="Opcional si entra por RUT"
-                />
-              </label>
               <label className="ops-toggle-row">
                 <input
                   type="checkbox"
                   checked={allowGuestRegistration}
                   onChange={(event) => setAllowGuestRegistration(event.target.checked)}
+                  disabled={registrationLocked}
                 />
                 <span>Permitir registro como invitado si no existe perfil</span>
               </label>
@@ -2003,24 +2255,13 @@ export default function FieldOperationsConsole({
                   type="checkbox"
                   checked={guestIsMinor}
                   onChange={(event) => setGuestIsMinor(event.target.checked)}
-                  disabled={!allowGuestRegistration}
+                  disabled={!allowGuestRegistration || registrationLocked}
                 />
                 <span>Marcar como menor de edad</span>
               </label>
-              <button type="button" onClick={handleRegisterPlayer} disabled={!activeEventId || lookupBusy}>
+              <button type="button" onClick={handleRegisterPlayer} disabled={!activeEventId || lookupBusy || registrationLocked}>
                 {lookupBusy ? 'Registrando...' : 'Registrar en evento'}
               </button>
-            </article>
-
-            <article className="ops-card">
-              <h4>Resumen rapido</h4>
-              <p className="ops-muted">Evento: {activeEvent?.title ?? 'Ninguno'}</p>
-              <p className="ops-muted">Jugadores registrados: {players.length}</p>
-              <p className="ops-muted">Pagados pendientes de ingreso: {paidPendingCount}</p>
-              <p className="ops-muted">Pagados presentes sin equipo: {paidPresentCount}</p>
-              <p className="ops-muted">Alpha: {teamBuckets.alpha.length}</p>
-              <p className="ops-muted">Bravo: {teamBuckets.bravo.length}</p>
-              <p className="ops-muted">Reserva: {teamBuckets.reserve.length}</p>
             </article>
           </section>
 
@@ -2078,69 +2319,76 @@ export default function FieldOperationsConsole({
             </article>
           </section>
 
-          {canManageFieldAdmins ? (
-            <section className="ops-grid ops-grid-bottom">
-              <article className="ops-card">
-                <h4>Mantenedor admin cancha por correo</h4>
-                <p className="ops-muted">Solo super admin designado: asigna o revoca administradores por correo.</p>
-
-                <label>
-                  Cancha
-                  <select value={adminFieldId} onChange={(event) => setAdminFieldId(event.target.value)}>
-                    {fields.map((field) => (
-                      <option key={field.id} value={field.id}>
-                        {field.name}{field.city ? ` (${field.city})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Correo del administrador
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    value={fieldAdminEmailInput}
-                    onChange={(event) => setFieldAdminEmailInput(event.target.value)}
-                    placeholder="admin@cancha.cl"
-                  />
-                </label>
-
-                <div className="ops-inline-actions">
-                  <button
-                    type="button"
-                    onClick={() => void handleAssignFieldAdminByEmail()}
-                    disabled={fieldAdminBusy || !adminFieldId}
-                  >
-                    {fieldAdminBusy ? 'Guardando...' : 'Asignar admin'}
-                  </button>
-                </div>
-
-                <ul className="ops-list">
-                  {fieldAdmins.length === 0 ? <li>No hay admins asignados para esta cancha.</li> : null}
-                  {fieldAdmins.map((row) => (
-                    <li key={`${row.user_id}:${row.assigned_at}`} className="ops-paid-row">
-                      <span>
-                        <strong>{row.email || row.user_id}</strong>
-                        <small>Asignado: {new Date(row.assigned_at).toLocaleString('es-CL')}</small>
-                      </span>
-                      <div className="ops-inline-actions">
-                        <button
-                          type="button"
-                          disabled={fieldAdminBusy}
-                          onClick={() => void handleRevokeFieldAdminByEmail(row.email)}
-                        >
-                          Revocar
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            </section>
-          ) : null}
         </section>
       )}
+
+      {activeView === 'superadmin' && isHomuraSuperAdmin ? (
+        <section className="ops-pane" aria-label="Panel super admin">
+          <div className="ops-pane-head">
+            <h3>Super Admin</h3>
+            <p>Gestion exclusiva de Homura para asignacion de admins de cancha por correo.</p>
+          </div>
+
+          <section className="ops-grid ops-grid-bottom">
+            <article className="ops-card">
+              <h4>Mantenedor admin cancha por correo</h4>
+
+              <label>
+                Cancha
+                <select value={adminFieldId} onChange={(event) => setAdminFieldId(event.target.value)}>
+                  {fields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.name}{field.city ? ` (${field.city})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Correo del administrador
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={fieldAdminEmailInput}
+                  onChange={(event) => setFieldAdminEmailInput(event.target.value)}
+                  placeholder="admin@cancha.cl"
+                />
+              </label>
+
+              <div className="ops-inline-actions">
+                <button
+                  type="button"
+                  onClick={() => void handleAssignFieldAdminByEmail()}
+                  disabled={fieldAdminBusy || !adminFieldId}
+                >
+                  {fieldAdminBusy ? 'Guardando...' : 'Asignar admin'}
+                </button>
+              </div>
+
+              <ul className="ops-list">
+                {fieldAdmins.length === 0 ? <li>No hay admins asignados para esta cancha.</li> : null}
+                {fieldAdmins.map((row) => (
+                  <li key={`${row.user_id}:${row.assigned_at}`} className="ops-paid-row">
+                    <span>
+                      <strong>{row.email || row.user_id}</strong>
+                      <small>Asignado: {new Date(row.assigned_at).toLocaleString('es-CL')}</small>
+                    </span>
+                    <div className="ops-inline-actions">
+                      <button
+                        type="button"
+                        disabled={fieldAdminBusy}
+                        onClick={() => void handleRevokeFieldAdminByEmail(row.email)}
+                      >
+                        Revocar
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </section>
+        </section>
+      ) : null}
 
       {activeView === 'equipos' && (
         <section className="ops-pane" aria-label="Panel equipos">

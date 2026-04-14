@@ -1,0 +1,172 @@
+.god-shell {
+  width: min(100%, 1120px);
+  border: 1px solid rgba(203, 236, 217, 0.2);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(7, 19, 19, 0.52);
+  display: grid;
+  gap: 10px;
+}
+
+.god-header {
+  text-align: left;
+}
+
+.god-title {
+  margin: 0;
+  font-size: 24px;
+}
+
+.god-subtitle {
+  margin: 6px 0 0;
+  color: #b8d3c6;
+}
+
+.god-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.god-toolbar input,
+.god-form input,
+.god-form select,
+.god-card input,
+.god-card select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(190, 232, 209, 0.3);
+  background: rgba(6, 12, 13, 0.9);
+  color: #eef8f4;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+
+.god-toolbar button,
+.god-inline-actions button {
+  border-radius: 10px;
+  border: 1px solid rgba(150, 233, 191, 0.46);
+  background: linear-gradient(150deg, rgba(58, 132, 92, 0.94), rgba(22, 63, 50, 0.98));
+  color: #f1fff8;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.god-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.god-card {
+  border: 1px solid rgba(204, 231, 217, 0.2);
+  border-radius: 14px;
+  background: rgba(7, 19, 19, 0.74);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.god-card h4 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.god-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+  max-height: 340px;
+  overflow: auto;
+}
+
+.god-user-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(192, 230, 210, 0.22);
+  border-radius: 10px;
+  background: rgba(13, 28, 22, 0.66);
+  color: #eafaf2;
+  padding: 8px;
+  display: grid;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.god-user-btn.is-active {
+  border-color: rgba(137, 226, 182, 0.7);
+  background: rgba(31, 77, 56, 0.6);
+}
+
+.god-user-btn span,
+.god-user-btn small,
+.god-muted {
+  color: #bed8cc;
+}
+
+.god-form {
+  display: grid;
+  gap: 7px;
+}
+
+.god-form label,
+.god-card label {
+  display: grid;
+  gap: 4px;
+}
+
+.god-inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.god-error {
+  margin: 0;
+  color: #ff9f9f;
+}
+
+.god-status {
+  margin: 0;
+  color: #d8f3e4;
+}
+
+.god-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 10, 12, 0.72);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  z-index: 90;
+}
+
+.god-modal-card {
+  width: min(100%, 520px);
+  border: 1px solid rgba(203, 236, 217, 0.24);
+  border-radius: 14px;
+  background: rgba(8, 18, 17, 0.96);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.god-modal-card h4 {
+  margin: 0;
+}
+
+.god-modal-card p {
+  margin: 0;
+  color: #d8f3e4;
+}
+
+@media (max-width: 980px) {
+  .god-grid {
+    grid-template-columns: 1fr;
+  }
+}
