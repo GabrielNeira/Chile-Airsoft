@@ -379,10 +379,7 @@ export default function FieldOperationsConsole({
     return baseViews.filter((view) => allowedViews.includes(view));
   }, [allowedViews, isHomuraSuperAdmin]);
 
-  const selectableEvents = useMemo(
-    () => events.filter((eventItem) => !eventItem.ends_at),
-    [events]
-  );
+  const selectableEvents = useMemo(() => events, [events]);
 
   const runningMatch = useMemo(
     () => matches.find((match) => match.status === 'running') ?? null,
@@ -568,12 +565,42 @@ export default function FieldOperationsConsole({
       const canMaintainAdmins = !maintainRpc.error && maintainRpc.data === true;
       setCanManageFieldAdmins(canMaintainAdmins);
 
-      const fieldsResPromise = supabase.from('fields').select('id,name,city').order('name');
-      const eventsResExtended = await supabase
+      let scopedFields: FieldRow[] = [];
+
+      if (canMaintainAdmins) {
+        const fieldsRes = await supabase.from('fields').select('id,name,city').order('name');
+        if (fieldsRes.error) throw fieldsRes.error;
+        scopedFields = (fieldsRes.data as FieldRow[] | null) ?? [];
+      } else {
+        const myFieldsRes = await supabase.rpc('list_accessible_fields_for_operations');
+        if (myFieldsRes.error) {
+          scopedFields = [];
+          setStatusMessage('No fue posible resolver canchas asignadas. Ejecuta el hotfix de politicas de eventos para visibilidad por cancha.');
+        } else {
+          scopedFields = (myFieldsRes.data as FieldRow[] | null) ?? [];
+        }
+      }
+
+      const scopedFieldIds = scopedFields.map((item) => item.id);
+
+      if (!canMaintainAdmins && scopedFieldIds.length === 0) {
+        setFields([]);
+        setEvents([]);
+        setActiveEventId('');
+        return;
+      }
+
+      let eventsResExtendedQuery = supabase
         .from('events')
         .select('id,title,event_date,starts_at,ends_at,scheduled_at,max_players,registration_closed_at,field_id,created_at')
         .order('created_at', { ascending: false })
-        .limit(80);
+        .limit(120);
+
+      if (!canMaintainAdmins && scopedFieldIds.length > 0) {
+        eventsResExtendedQuery = eventsResExtendedQuery.in('field_id', scopedFieldIds);
+      }
+
+      const eventsResExtended = await eventsResExtendedQuery;
 
       let eventsRes: {
         data: EventRow[] | null;
@@ -594,23 +621,26 @@ export default function FieldOperationsConsole({
             .from('events')
             .select('id,title,event_date,starts_at,ends_at,field_id,created_at')
             .order('created_at', { ascending: false })
-            .limit(80);
+            .limit(120);
 
           eventsRes = {
             data: (eventsResFallback.data as EventRow[] | null) ?? null,
             error: eventsResFallback.error as { message?: string } | null
           };
+
+          if (!eventsRes.error && !canMaintainAdmins && scopedFieldIds.length > 0) {
+            const filteredData = ((eventsRes.data as EventRow[] | null) ?? []).filter((item) => scopedFieldIds.includes(item.field_id));
+            eventsRes = {
+              data: filteredData,
+              error: null
+            };
+          }
         }
       }
-
-      const fieldsRes = await fieldsResPromise;
-
-      if (fieldsRes.error) throw fieldsRes.error;
       if (eventsRes.error) throw eventsRes.error;
 
-      const nextFields = (fieldsRes.data as FieldRow[] | null) ?? [];
+      const nextFields = scopedFields;
       const nextEvents = (eventsRes.data as EventRow[] | null) ?? [];
-      const nextSelectableEvents = nextEvents.filter((eventItem) => !eventItem.ends_at);
 
       setFields(nextFields);
       setEvents(nextEvents);
@@ -622,7 +652,7 @@ export default function FieldOperationsConsole({
         }
       }
 
-      setActiveEventId(nextSelectableEvents[0]?.id ?? '');
+      setActiveEventId(nextEvents[0]?.id ?? '');
     } catch (error) {
       setStatusMessage(mapError(error));
     } finally {
@@ -2174,11 +2204,14 @@ export default function FieldOperationsConsole({
                       onClick={() => setActiveEventId(eventItem.id)}
                     >
                       <span>{eventItem.title}</span>
-                      <span>{eventItem.event_date}</span>
+                      <span>
+                        {eventItem.event_date}
+                        {eventItem.ends_at ? ' | cerrado' : ' | abierto'}
+                      </span>
                     </button>
                   );
                 })}
-                {selectableEvents.length === 0 ? <p className="ops-muted">No hay eventos abiertos para operar.</p> : null}
+                {selectableEvents.length === 0 ? <p className="ops-muted">No hay eventos visibles para tus canchas asignadas.</p> : null}
               </div>
 
               {activeEvent ? (

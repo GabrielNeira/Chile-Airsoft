@@ -84,22 +84,22 @@ begin
 
   v_sql := '
     select
-      e.id as event_id,
-      e.field_id,
-      coalesce(f.name, ''sin-cancha'') as field_name,
-      e.title,
-      e.event_date,
-      e.created_at,
-      ' || v_scheduled_expr || ' as scheduled_at,
-      e.starts_at,
-      e.ends_at,
-      ' || v_registration_closed_expr || ' as registration_closed_at,
-      ' || v_max_players_expr || ' as max_players,
-      e.created_by,
-      coalesce(u.email, ''sin-email'') as creator_email,
-      ' || v_registration_closed_bool_expr || ' as is_registration_closed,
-      (e.ends_at is not null) as is_event_closed,
-      count(*) over() as total_rows
+      e.id::uuid as event_id,
+      e.field_id::uuid as field_id,
+      coalesce(f.name, ''sin-cancha'')::text as field_name,
+      e.title::text as title,
+      e.event_date::date as event_date,
+      e.created_at::timestamptz as created_at,
+      (' || v_scheduled_expr || ')::timestamptz as scheduled_at,
+      e.starts_at::timestamptz as starts_at,
+      e.ends_at::timestamptz as ends_at,
+      (' || v_registration_closed_expr || ')::timestamptz as registration_closed_at,
+      (' || v_max_players_expr || ')::integer as max_players,
+      e.created_by::uuid as created_by,
+      coalesce(u.email::text, ''sin-email'')::text as creator_email,
+      (' || v_registration_closed_bool_expr || ')::boolean as is_registration_closed,
+      (e.ends_at is not null)::boolean as is_event_closed,
+      count(*) over()::bigint as total_rows
     from public.events e
     left join public.fields f
       on f.id = e.field_id
