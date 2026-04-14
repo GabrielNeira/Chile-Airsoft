@@ -1926,7 +1926,7 @@ function App() {
                   {activeGodWorkspace === 'users' ? <GodUserMaintainer enabled={isGodAdmin} /> : null}
                   {activeGodWorkspace === 'events' ? <GodEventsMaintainer enabled={isGodAdmin} /> : null}
 
-                  {canManageFieldAdminsByEmail ? (
+                  {isGodAdmin ? (
                     <FieldOperationsConsole
                       operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin god').trim()}
                       operatorCredentialId={operatorData?.credentialId}

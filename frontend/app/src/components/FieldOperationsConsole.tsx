@@ -7,6 +7,7 @@ type CardType = 'green' | 'yellow' | 'red';
 type MatchStatus = 'planned' | 'running' | 'finished';
 type BoardView = 'evento' | 'equipos' | 'partidas' | 'tarjetas' | 'superadmin';
 type PlayerKind = 'operator' | 'guest';
+type EventPaneTab = 'open' | 'history';
 
 interface FieldOperationsConsoleProps {
   operatorNickname: string;
@@ -308,7 +309,9 @@ export default function FieldOperationsConsole({
   const [activeView, setActiveView] = useState<BoardView>(initialView ?? 'evento');
   const [fields, setFields] = useState<FieldRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [eventPaneTab, setEventPaneTab] = useState<EventPaneTab>('open');
   const [activeEventId, setActiveEventId] = useState('');
+  const [historicalEventId, setHistoricalEventId] = useState('');
 
   const [eventTitle, setEventTitle] = useState('Jornada Airsoft');
   const [eventDate, setEventDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -379,7 +382,20 @@ export default function FieldOperationsConsole({
     return baseViews.filter((view) => allowedViews.includes(view));
   }, [allowedViews, isHomuraSuperAdmin]);
 
-  const selectableEvents = useMemo(() => events, [events]);
+  const openEvents = useMemo(
+    () => events.filter((eventItem) => !eventItem.ends_at),
+    [events]
+  );
+
+  const historicalEvents = useMemo(
+    () => events.filter((eventItem) => Boolean(eventItem.ends_at)),
+    [events]
+  );
+
+  const historicalEvent = useMemo(
+    () => historicalEvents.find((eventItem) => eventItem.id === historicalEventId) ?? null,
+    [historicalEvents, historicalEventId]
+  );
 
   const runningMatch = useMemo(
     () => matches.find((match) => match.status === 'running') ?? null,
@@ -428,6 +444,28 @@ export default function FieldOperationsConsole({
     setEventEditTime(toInputTimeLabel(activeEvent.scheduled_at));
     setEventEditMaxPlayers(activeEvent.max_players ? String(activeEvent.max_players) : '');
   }, [activeEvent]);
+
+  useEffect(() => {
+    if (openEvents.length === 0) {
+      setActiveEventId('');
+      return;
+    }
+
+    if (!openEvents.some((eventItem) => eventItem.id === activeEventId)) {
+      setActiveEventId(openEvents[0].id);
+    }
+  }, [openEvents, activeEventId]);
+
+  useEffect(() => {
+    if (historicalEvents.length === 0) {
+      setHistoricalEventId('');
+      return;
+    }
+
+    if (!historicalEvents.some((eventItem) => eventItem.id === historicalEventId)) {
+      setHistoricalEventId(historicalEvents[0].id);
+    }
+  }, [historicalEvents, historicalEventId]);
 
   const teamBuckets = useMemo(() => {
     const alpha = players.filter((player) => player.teamSlot === 'alpha');
@@ -641,6 +679,8 @@ export default function FieldOperationsConsole({
 
       const nextFields = scopedFields;
       const nextEvents = (eventsRes.data as EventRow[] | null) ?? [];
+      const nextOpenEvents = nextEvents.filter((eventItem) => !eventItem.ends_at);
+      const nextHistoricalEvents = nextEvents.filter((eventItem) => Boolean(eventItem.ends_at));
 
       setFields(nextFields);
       setEvents(nextEvents);
@@ -652,7 +692,8 @@ export default function FieldOperationsConsole({
         }
       }
 
-      setActiveEventId(nextEvents[0]?.id ?? '');
+      setActiveEventId(nextOpenEvents[0]?.id ?? '');
+      setHistoricalEventId(nextHistoricalEvents[0]?.id ?? '');
     } catch (error) {
       setStatusMessage(mapError(error));
     } finally {
@@ -2193,28 +2234,62 @@ export default function FieldOperationsConsole({
 
             <article className="ops-card">
               <h4>Evento activo</h4>
-              <div className="ops-event-list" role="listbox" aria-label="Lista de eventos">
-                {selectableEvents.map((eventItem) => {
-                  const isActive = eventItem.id === activeEventId;
-                  return (
-                    <button
-                      key={eventItem.id}
-                      type="button"
-                      className={`ops-event-pill ${isActive ? 'is-active' : ''}`}
-                      onClick={() => setActiveEventId(eventItem.id)}
-                    >
-                      <span>{eventItem.title}</span>
-                      <span>
-                        {eventItem.event_date}
-                        {eventItem.ends_at ? ' | cerrado' : ' | abierto'}
-                      </span>
-                    </button>
-                  );
-                })}
-                {selectableEvents.length === 0 ? <p className="ops-muted">No hay eventos visibles para tus canchas asignadas.</p> : null}
+              <div className="ops-inline-actions" style={{ marginBottom: '8px' }}>
+                <button
+                  type="button"
+                  className={eventPaneTab === 'open' ? 'is-active' : ''}
+                  onClick={() => setEventPaneTab('open')}
+                >
+                  Eventos Abiertos
+                </button>
+                <button
+                  type="button"
+                  className={eventPaneTab === 'history' ? 'is-active' : ''}
+                  onClick={() => setEventPaneTab('history')}
+                >
+                  Eventos Historicos
+                </button>
               </div>
 
-              {activeEvent ? (
+              {eventPaneTab === 'open' ? (
+                <div className="ops-event-list" role="listbox" aria-label="Lista de eventos abiertos">
+                  {openEvents.map((eventItem) => {
+                    const isActive = eventItem.id === activeEventId;
+                    return (
+                      <button
+                        key={eventItem.id}
+                        type="button"
+                        className={`ops-event-pill ${isActive ? 'is-active' : ''}`}
+                        onClick={() => setActiveEventId(eventItem.id)}
+                      >
+                        <span>{eventItem.title}</span>
+                        <span>{eventItem.event_date} | abierto</span>
+                      </button>
+                    );
+                  })}
+                  {openEvents.length === 0 ? <p className="ops-muted">No hay eventos abiertos para tus canchas asignadas.</p> : null}
+                </div>
+              ) : (
+                <div className="ops-event-list" role="listbox" aria-label="Lista de eventos historicos">
+                  {historicalEvents.map((eventItem) => {
+                    const isActive = eventItem.id === historicalEventId;
+                    return (
+                      <button
+                        key={eventItem.id}
+                        type="button"
+                        className={`ops-event-pill ${isActive ? 'is-active' : ''}`}
+                        onClick={() => setHistoricalEventId(eventItem.id)}
+                      >
+                        <span>{eventItem.title}</span>
+                        <span>{eventItem.event_date} | cerrado</span>
+                      </button>
+                    );
+                  })}
+                  {historicalEvents.length === 0 ? <p className="ops-muted">No hay eventos historicos en tus canchas asignadas.</p> : null}
+                </div>
+              )}
+
+              {eventPaneTab === 'open' && activeEvent ? (
                 <div className="ops-grid" style={{ gap: '8px' }}>
                   <p className="ops-muted">Creado: {new Date(activeEvent.created_at).toLocaleString('es-CL')}</p>
                   <p className="ops-muted">Cierre inscripciones: {activeEvent.registration_closed_at ? new Date(activeEvent.registration_closed_at).toLocaleString('es-CL') : 'abiertas'}</p>
@@ -2256,6 +2331,20 @@ export default function FieldOperationsConsole({
                       Eliminar
                     </button>
                   </div>
+                </div>
+              ) : null}
+
+              {eventPaneTab === 'history' && historicalEvent ? (
+                <div className="ops-grid" style={{ gap: '8px' }}>
+                  <p className="ops-muted">Evento cerrado: {historicalEvent.title}</p>
+                  <p className="ops-muted">Fecha evento: {historicalEvent.event_date}</p>
+                  <p className="ops-muted">Creado: {new Date(historicalEvent.created_at).toLocaleString('es-CL')}</p>
+                  <p className="ops-muted">
+                    Cierre final: {historicalEvent.ends_at ? new Date(historicalEvent.ends_at).toLocaleString('es-CL') : 'N/D'}
+                  </p>
+                  <p className="ops-muted">
+                    Cierre inscripciones: {historicalEvent.registration_closed_at ? new Date(historicalEvent.registration_closed_at).toLocaleString('es-CL') : 'N/D'}
+                  </p>
                 </div>
               ) : null}
             </article>
