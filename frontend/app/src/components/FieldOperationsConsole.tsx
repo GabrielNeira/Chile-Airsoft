@@ -160,7 +160,7 @@ interface PaidRegistrationRow {
   guest_rut_normalized: string | null;
   guest_blood_group: string | null;
   is_minor: boolean;
-  registration_status: 'paid' | 'present' | 'assigned' | 'cancelled' | 'refunded';
+  registration_status: 'paid' | 'present' | 'assigned' | 'cancelled' | 'refunded' | 'manual_unpaid';
   team_slot: TeamSlot | null;
   checked_in_at: string | null;
   assigned_at: string | null;
