@@ -1528,12 +1528,6 @@ function App() {
 
   const needsCredentialSetup = needsIdentityOnboarding || needsRegistration;
   const showingIdentityStep = needsIdentityOnboarding;
-  const isGodAdmin = canManageRoles || canManageFieldAdminsByEmail;
-  const activeUserTypeLabel = isGodAdmin
-    ? 'admin god'
-    : canAccessFieldOperations
-      ? 'administrador de cancha'
-      : 'operador';
 
   return (
     <>

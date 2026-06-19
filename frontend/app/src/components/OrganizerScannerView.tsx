@@ -14,8 +14,6 @@ declare global {
     BarcodeDetector?: BarcodeDetectorCtor;
   }
 }
-
-type FairPlayStatus = 'green' | 'yellow' | 'red';
 type TeamSlot = 'alpha' | 'bravo' | 'reserve';
 
 interface ScanResult {
