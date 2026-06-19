@@ -1810,18 +1810,18 @@ function App() {
               ) : null}
 
               {activeAdminWorkspace === 'scanner' ? (
-                <details className="id-secondary-tools" open>
-                  <summary>Escaner QR (herramienta independiente)</summary>
-                  <div className="scanner-pane id-secondary-pane" style={{ display: 'grid', gap: '0.75rem' }}>
-                    <label style={{ display: 'grid', gap: '0.25rem', textAlign: 'left' }}>
-                      Evento a operar
+                <div className="scanner-full-view">
+                  <header className="scanner-header">
+                    <h2>Escáner de Operadores</h2>
+                    <label className="scanner-event-select">
+                      <span className="scanner-event-label">Evento Activo:</span>
                       {scannerEventsLoading ? (
                         <select disabled>
                           <option>Cargando eventos…</option>
                         </select>
                       ) : scannerEventOptions.length === 0 ? (
                         <select disabled>
-                          <option>Sin eventos abiertos asignados</option>
+                          <option>Sin eventos abiertos</option>
                         </select>
                       ) : (
                         <select
@@ -1836,62 +1836,60 @@ function App() {
                         </select>
                       )}
                     </label>
+                  </header>
 
-                    <OrganizerScannerView
-                      eventId={scannerEventId.trim() || 'SIN-EVENTO'}
-                      onResolveQr={resolveOperatorFromQr}
-                      onCheckin={async ({ eventId, operatorUserId }) => {
-                        if (!supabase) {
-                          throw new Error('Supabase no disponible.');
-                        }
+                  <OrganizerScannerView
+                    eventId={scannerEventId.trim() || 'SIN-EVENTO'}
+                    onResolveQr={resolveOperatorFromQr}
+                    onCheckin={async ({ eventId, operatorUserId }) => {
+                      if (!supabase) {
+                        throw new Error('Supabase no disponible.');
+                      }
 
-                        if (!eventId || eventId === 'SIN-EVENTO') {
-                          throw new Error('Debes seleccionar un evento valido.');
-                        }
+                      if (!eventId || eventId === 'SIN-EVENTO') {
+                        throw new Error('Debes seleccionar un evento valido.');
+                      }
 
-                        const { error } = await supabase.from('event_checkins').upsert(
-                          {
-                            event_id: eventId,
-                            operator_user_id: operatorUserId,
-                            checked_in_by: sessionUserId,
-                            checkin_source: 'scanner_qr'
-                          },
-                          { onConflict: 'event_id,operator_user_id' }
-                        );
+                      const { error } = await supabase.from('event_checkins').upsert(
+                        {
+                          event_id: eventId,
+                          operator_user_id: operatorUserId,
+                          checked_in_by: sessionUserId,
+                          checkin_source: 'scanner_qr'
+                        },
+                        { onConflict: 'event_id,operator_user_id' }
+                      );
 
-                        if (error) {
-                          throw error;
-                        }
-                      }}
-                      onAssignTeam={async ({ eventId, operatorUserId, teamSlot }) => {
-                        if (!supabase) {
-                          throw new Error('Supabase no disponible.');
-                        }
+                      if (error) {
+                        throw error;
+                      }
+                    }}
+                    onAssignTeam={async ({ eventId, operatorUserId, teamSlot }) => {
+                      if (!supabase) {
+                        throw new Error('Supabase no disponible.');
+                      }
 
-                        if (!eventId || eventId === 'SIN-EVENTO') {
-                          throw new Error('Debes seleccionar un evento valido.');
-                        }
+                      if (!eventId || eventId === 'SIN-EVENTO') {
+                        throw new Error('Debes seleccionar un evento valido.');
+                      }
 
-                        const { error } = await supabase
-                          .from('event_team_assignments')
-                          .upsert(
-                            {
-                              event_id: eventId,
-                              operator_user_id: operatorUserId,
-                              team_slot: teamSlot,
-                              assigned_by: sessionUserId
-                            },
-                            { onConflict: 'event_id,operator_user_id' }
-                          );
+                      const { error } = await supabase.from('event_team_assignments').upsert(
+                        {
+                          event_id: eventId,
+                          operator_user_id: operatorUserId,
+                          team_slot: teamSlot,
+                          assigned_by: sessionUserId
+                        },
+                        { onConflict: 'event_id,operator_user_id' }
+                      );
 
-                        if (error) {
-                          throw error;
-                        }
-                      }}
+                      if (error) {
+                        throw error;
+                      }
+                    }}
 
-                    />
-                  </div>
-                </details>
+                  />
+                </div>
               ) : null}
 
               {activeAdminWorkspace === 'god' ? (

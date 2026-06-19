@@ -53,9 +53,10 @@ export function OrganizerScannerView({
   const cameraActiveRef = useRef(false);
 
   const [rawQr, setRawQr] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
   const [target, setTarget] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('Camara apagada. Activa la camara para escanear.');
+  const [status, setStatus] = useState('Escáner listo');
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanTone, setScanTone] = useState<ScanTone>('idle');
@@ -257,59 +258,88 @@ export function OrganizerScannerView({
 
   return (
     <section className="org-scanner-shell">
-      <h2 className="org-scanner-title">Validador In-Game</h2>
-      <p className="org-scanner-subtitle">Escaneo rapido con camara del telefono + validacion AirsoftID.</p>
-
       <div className="org-scanner-camera-card">
-        <div className={`org-scanner-camera-wrap tone-${scanTone}`}>
-          <video ref={videoRef} className="org-scanner-video" playsInline muted autoPlay />
-          <div className="org-scanner-reticle" aria-hidden="true" />
-          <p className="org-scanner-camera-label">{cameraActive ? 'Camara activa' : 'Camara detenida'}</p>
-        </div>
-
-        <div className="org-scanner-camera-actions">
-          <button type="button" onClick={() => void startCamera()} disabled={cameraActive}>Abrir camara</button>
-          <button type="button" onClick={stopCamera} disabled={!cameraActive}>Detener camara</button>
-        </div>
+        {cameraActive ? (
+          <div className={`org-scanner-camera-wrap tone-${scanTone}`}>
+            <video ref={videoRef} className="org-scanner-video" playsInline muted autoPlay />
+            <div className="org-scanner-reticle">
+              <div className="reticle-corner top-left"></div>
+              <div className="reticle-corner top-right"></div>
+              <div className="reticle-corner bottom-left"></div>
+              <div className="reticle-corner bottom-right"></div>
+            </div>
+            <button className="org-scanner-stop-btn" onClick={stopCamera}>
+              ✕ Detener Lente
+            </button>
+          </div>
+        ) : (
+          <div className="org-scanner-camera-idle">
+            <div className="idle-icon-wrap">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M3 8V6a2 2 0 0 1 2-2h2M21 8V6a2 2 0 0 0-2-2h-2M3 16v2a2 2 0 0 0 2 2h2M21 16v2a2 2 0 0 1-2 2h-2"/>
+                <path d="M8 12h8M12 8v8"/>
+              </svg>
+            </div>
+            <p>Escaneo rápido de credencial AirsoftID.</p>
+            <button className="org-scanner-start-btn" onClick={() => void startCamera()}>
+              Activar Lente
+            </button>
+          </div>
+        )}
 
         {cameraError ? <p className="org-scanner-error">{cameraError}</p> : null}
       </div>
 
-      <div className="org-scanner-manual-card">
-        <label htmlFor="rawQr">QR Capturado</label>
-        <input
-          id="rawQr"
-          type="text"
-          placeholder="pega valor de QR o token"
-          value={rawQr}
-          onChange={(e) => setRawQr(e.target.value)}
-          className="org-scanner-input"
-        />
-        <button disabled={loading || !rawQr.trim()} onClick={handleScanResolve}>Resolver QR</button>
+      <div className="org-scanner-controls">
+        <button 
+          className="org-scanner-toggle-manual" 
+          onClick={() => setShowManualInput(!showManualInput)}
+        >
+          {showManualInput ? 'Ocultar ingreso manual' : 'Ingreso manual de código'}
+        </button>
+
+        {showManualInput && (
+          <div className="org-scanner-manual-card">
+            <input
+              type="text"
+              placeholder="Ingresa token o código"
+              value={rawQr}
+              onChange={(e) => setRawQr(e.target.value)}
+              className="org-scanner-input"
+            />
+            <button disabled={loading || !rawQr.trim()} onClick={handleScanResolve} className="org-scanner-manual-submit">
+              Validar
+            </button>
+          </div>
+        )}
       </div>
 
-      <p className={`org-scanner-status tone-${scanTone}`}>{status}</p>
+      <div className={`org-scanner-status-toast tone-${scanTone} ${status !== 'Escáner listo' ? 'is-visible' : ''}`}>
+        {status}
+      </div>
 
       {target && (
-        <div className="org-scanner-target-card">
-          <p className="org-target-name">{target.nickname}</p>
+        <div className="org-scanner-bottom-sheet">
+          <div className="bottom-sheet-header">
+            <h3 className="org-target-name">{target.nickname}</h3>
+            <button className="bottom-sheet-close" onClick={() => setTarget(null)}>✕</button>
+          </div>
           <p className="org-target-meta">{target.role} | Sangre {target.bloodGroup}</p>
-          <p className="org-target-meta">{target.team || 'Sin team'}</p>
+          <p className="org-target-meta">{target.team || 'Sin team registrado'}</p>
 
-          {/* Asistencia */}
           <div className="org-target-actions">
             <button
+              className={`checkin-btn ${checkinDone ? 'done' : ''}`}
               disabled={!canSubmit || checkinDone}
               onClick={handleCheckin}
             >
-              {checkinDone ? '✓ Asistencia Confirmada' : 'Marcar Asistencia'}
+              {checkinDone ? '✓ Asistencia Confirmada' : 'Marcar Asistencia Física'}
             </button>
           </div>
 
-          {/* Asignacion de equipo — siempre visible tras resolver el jugador */}
           {onAssignTeam && (
             <div className="org-scanner-team-assign">
-              <h3 className="org-scanner-team-assign-title">Asignar Equipo</h3>
+              <h4 className="org-scanner-team-assign-title">Asignación Rápida de Equipo</h4>
               <div className="org-scanner-team-slots">
                 {(['alpha', 'bravo', 'reserve'] as TeamSlot[]).map((slot) => (
                   <button
@@ -330,7 +360,7 @@ export function OrganizerScannerView({
                 onClick={handleAssignTeam}
               >
                 {assignLoading
-                  ? 'Procesando…'
+                  ? 'Asignando…'
                   : checkinDone
                     ? `Confirmar → ${TEAM_LABEL[selectedTeamSlot]}`
                     : `Marcar presente + ${TEAM_LABEL[selectedTeamSlot]}`}
