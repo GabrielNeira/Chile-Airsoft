@@ -2449,6 +2449,7 @@ export default function FieldOperationsConsole({
           )}
 
           {eventoSubView === 'jugadores' && (
+            <>
             <section className="ops-grid ops-grid-bottom">
             <article className="ops-card">
               <h4>Registro de jugador</h4>
@@ -2583,6 +2584,7 @@ export default function FieldOperationsConsole({
               </ul>
             </article>
           </section>
+          </>
           )}
 
         </section>
