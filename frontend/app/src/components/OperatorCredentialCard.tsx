@@ -151,44 +151,34 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
             <section className={`oc-face oc-face-front ${isLongTeamName ? 'oc-front-long-team' : ''}`} aria-hidden={isFlipped}>
               <img src="/logo.svg" alt="" aria-hidden="true" className="oc-brand-mark oc-brand-mark-front" />
 
-              <div className="oc-corner-qr oc-corner-qr-front" aria-label="QR esquinado frontal de la credencial">
-                <img src={data.qrImageUrl} alt="QR frontal de operador" className="oc-corner-qr-image" />
-              </div>
+              <div className="oc-front-layout">
+                <div className="oc-front-top">
+                  <div className="oc-avatar-wrap">
+                    <img
+                      src={avatarSrc}
+                      alt={`Foto de ${data.nickname}`}
+                      className="oc-avatar"
+                      onError={() => {
+                        if (avatarFallbackTried) {
+                          return;
+                        }
 
-              <div className="oc-body">
-                <div className="oc-avatar-wrap">
-                  <img
-                    src={avatarSrc}
-                    alt={`Foto de ${data.nickname}`}
-                    className="oc-avatar"
-                    onError={() => {
-                      if (avatarFallbackTried) {
-                        return;
-                      }
-
-                      setAvatarFallbackTried(true);
-                      setAvatarSrc(
-                        `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(data.nickname)}`
-                      );
-                    }}
-                  />
+                        setAvatarFallbackTried(true);
+                        setAvatarSrc(
+                          `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(data.nickname)}`
+                        );
+                      }}
+                    />
+                  </div>
+                  <div className="oc-user-core-info">
+                    <p className="oc-nickname">{data.nickname}</p>
+                    <p className="oc-realname">{data.realName}</p>
+                    <p className={`oc-tag ${statusColorClass}`}>SANGRE {data.bloodGroup}</p>
+                  </div>
                 </div>
 
-                <div className="oc-info">
-                  <p className="oc-nickname">{data.nickname}</p>
-                  <p className="oc-realname">{data.realName}</p>
-
-                  <div className="oc-role-emblem" aria-label={`Rol ${roleDisplay.label}`}>
-                    <svg viewBox="0 0 24 24" className="oc-role-emblem-icon" aria-hidden="true">
-                      <path d="M12 2l7 3v6c0 5.2-3.3 9.8-7 11-3.7-1.2-7-5.8-7-11V5z" fill="currentColor" />
-                    </svg>
-                    <div className="oc-role-emblem-text">
-                      <span className="oc-role-emblem-short">{roleDisplay.short}</span>
-                      <span className="oc-role-emblem-label">{roleDisplay.label}</span>
-                    </div>
-                  </div>
-
-                  <div className="oc-team-row">
+                <div className="oc-front-bottom">
+                  <div className="oc-team-role-wrap">
                     {data.teamLogoUrl && teamLogoVisible ? (
                       <img
                         src={data.teamLogoUrl}
@@ -197,14 +187,30 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                         onError={() => setTeamLogoVisible(false)}
                       />
                     ) : null}
-                    <p className={`oc-team ${isLongTeamName ? 'is-long' : ''}`}>{data.team ? `TEAM ${data.team}` : 'SIN TEAM'}</p>
+                    <div className="oc-team-role-text">
+                      <p className={`oc-team ${isLongTeamName ? 'is-long' : ''}`}>{data.team ? `TEAM ${data.team}` : 'SIN TEAM'}</p>
+                      
+                      <div className="oc-role-emblem" aria-label={`Rol ${roleDisplay.label}`}>
+                        <svg viewBox="0 0 24 24" className="oc-role-emblem-icon" aria-hidden="true">
+                          <path d="M12 2l7 3v6c0 5.2-3.3 9.8-7 11-3.7-1.2-7-5.8-7-11V5z" fill="currentColor" />
+                        </svg>
+                        <div className="oc-role-emblem-text">
+                          <span className="oc-role-emblem-short">{roleDisplay.short}</span>
+                          <span className="oc-role-emblem-label">{roleDisplay.label}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <p className={`oc-tag ${statusColorClass}`}>SANGRE {data.bloodGroup}</p>
-                </div>
-              </div>
 
-              <div className="oc-credential-id-minimal">
-                ID: {data.credentialId}
+                  <div className="oc-qr-id-wrap">
+                    <div className="oc-corner-qr-front" aria-label="QR frontal">
+                      <img src={data.qrImageUrl} alt="QR frontal de operador" className="oc-corner-qr-image" />
+                    </div>
+                    <div className="oc-credential-id-minimal">
+                      ID: {data.credentialId}
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
