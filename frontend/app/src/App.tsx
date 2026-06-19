@@ -1528,6 +1528,7 @@ function App() {
 
   const needsCredentialSetup = needsIdentityOnboarding || needsRegistration;
   const showingIdentityStep = needsIdentityOnboarding;
+  const isGodAdmin = canManageRoles || canManageFieldAdminsByEmail;
 
   return (
     <>
