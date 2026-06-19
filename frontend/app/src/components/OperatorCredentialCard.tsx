@@ -85,36 +85,7 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
     return 'oc-tag-safe';
   }, [data.bloodGroup]);
 
-  const operatorScore = useMemo(() => {
-    if (data.operatorScore === null || data.operatorScore === undefined) {
-      return 1;
-    }
 
-    if (typeof data.operatorScore === 'string' && data.operatorScore.trim().length === 0) {
-      return 1;
-    }
-
-    const normalizedOperatorScore =
-      typeof data.operatorScore === 'number' ? data.operatorScore : Number(data.operatorScore);
-
-    if (Number.isFinite(normalizedOperatorScore) && normalizedOperatorScore > 0) {
-      return Math.round(Math.max(1, Math.min(100, normalizedOperatorScore)));
-    }
-
-    return 1;
-  }, [data.operatorScore]);
-
-  const operatorScoreToneClass = useMemo(() => {
-    if (operatorScore >= 70) {
-      return 'oc-chip-score-good';
-    }
-
-    if (operatorScore <= 39) {
-      return 'oc-chip-score-bad';
-    }
-
-    return 'oc-chip-score-mid';
-  }, [operatorScore]);
 
   const roleDisplay = useMemo(() => getRoleDisplay(data.role), [data.role]);
   const isLongTeamName = (data.team?.trim().length ?? 0) > 30;
