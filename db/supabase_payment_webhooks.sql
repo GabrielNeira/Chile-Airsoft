@@ -139,7 +139,7 @@ $$;
 do $$
 begin
   if not exists (select 1 from pg_type where typname = 'registration_status') then
-    create type public.registration_status as enum ('paid', 'present', 'assigned', 'cancelled', 'refunded');
+    create type public.registration_status as enum ('paid', 'present', 'assigned', 'cancelled', 'refunded', 'manual_unpaid');
   end if;
 end;
 $$;
@@ -187,8 +187,8 @@ create table if not exists public.webhook_events_log (
 create table if not exists public.event_paid_registrations (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
-  payment_order_id uuid not null references public.payment_orders (id) on delete cascade,
-  payment_transaction_id uuid not null references public.payment_transactions (id) on delete cascade,
+  payment_order_id uuid references public.payment_orders (id) on delete cascade,
+  payment_transaction_id uuid references public.payment_transactions (id) on delete cascade,
   operator_user_id uuid references public.operator_profiles (user_id) on delete set null,
   guest_nickname text,
   guest_rut_normalized text,

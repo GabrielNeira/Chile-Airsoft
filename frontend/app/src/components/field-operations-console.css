@@ -466,3 +466,33 @@
     grid-template-columns: 1fr;
   }
 }
+
+.ops-subview-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+  overflow-x: auto;
+}
+
+.ops-subview-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ops-subview-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ops-subview-tab.is-active {
+  background: rgba(192, 225, 205, 0.1);
+  color: #c0e1cd;
+}

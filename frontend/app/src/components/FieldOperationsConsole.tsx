@@ -307,17 +307,19 @@ export default function FieldOperationsConsole({
   initialView
 }: FieldOperationsConsoleProps) {
   const [activeView, setActiveView] = useState<BoardView>(initialView ?? 'evento');
+  const [eventoSubView, setEventoSubView] = useState<'generar' | 'administrar' | 'jugadores'>('generar');
   const [fields, setFields] = useState<FieldRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [eventPaneTab, setEventPaneTab] = useState<EventPaneTab>('open');
   const [activeEventId, setActiveEventId] = useState('');
   const [historicalEventId, setHistoricalEventId] = useState('');
+  const [eventFieldId, setEventFieldId] = useState('');
 
   const [eventTitle, setEventTitle] = useState('Jornada Airsoft');
   const [eventDate, setEventDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [eventTime, setEventTime] = useState('09:00');
-  const [eventMaxPlayers, setEventMaxPlayers] = useState('40');
-  const [eventFieldId, setEventFieldId] = useState('');
+  const [eventMaxPlayers, setEventMaxPlayers] = useState('150');
+  const [eventPrice, setEventPrice] = useState('25000');
 
   const [eventEditTitle, setEventEditTitle] = useState('');
   const [eventEditDate, setEventEditDate] = useState('');
@@ -1049,6 +1051,8 @@ export default function FieldOperationsConsole({
       const maxPlayersValue = Number.isFinite(parsedMaxPlayers) && parsedMaxPlayers > 0
         ? Math.floor(parsedMaxPlayers)
         : null;
+      const parsedPrice = Number(eventPrice);
+      const priceValue = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? Math.floor(parsedPrice) : 25000;
 
       let createRes = await supabase
         .from('events')
@@ -1058,14 +1062,15 @@ export default function FieldOperationsConsole({
           event_date: eventDate,
           scheduled_at: scheduledAt,
           max_players: maxPlayersValue,
+          price: priceValue,
           created_by: sessionUserId
         })
-        .select('id,title,event_date,starts_at,ends_at,scheduled_at,max_players,registration_closed_at,field_id,created_at')
+        .select('id,title,event_date,starts_at,ends_at,scheduled_at,max_players,price,registration_closed_at,field_id,created_at')
         .single();
 
       if (createRes.error) {
         const message = createRes.error.message.toLowerCase();
-        if (message.includes('scheduled_at') || message.includes('max_players')) {
+        if (message.includes('scheduled_at') || message.includes('max_players') || message.includes('price')) {
           createRes = await supabase
             .from('events')
             .insert({
@@ -1721,6 +1726,70 @@ export default function FieldOperationsConsole({
     }
   }
 
+  async function handleManualUnpaidRegistration() {
+    if (!supabase || !activeEventId) return;
+
+    if (!playerNameInput.trim() && !rutInput.trim()) {
+      setStatusMessage('Debes ingresar un nombre o RUT válido para registrar la pre-inscripción.');
+      return;
+    }
+
+    setLookupBusy(true);
+    setStatusMessage('');
+
+    try {
+      const normalizedRut = normalizeRut(rutInput);
+      let resolvedUserId: string | null = null;
+      let guestNickname: string | null = null;
+
+      if (normalizedRut) {
+        // Find if user has a profile
+        const { data: opData } = await supabase
+          .from('operator_profiles')
+          .select('user_id, nickname')
+          .eq('rut', normalizedRut)
+          .maybeSingle();
+
+        if (opData) {
+          resolvedUserId = opData.user_id;
+        }
+      }
+
+      if (!resolvedUserId) {
+        guestNickname = playerNameInput.trim() || 'Desconocido';
+      }
+
+      const { error: insertError } = await supabase
+        .from('event_paid_registrations')
+        .insert({
+          event_id: activeEventId,
+          operator_user_id: resolvedUserId,
+          guest_nickname: resolvedUserId ? null : guestNickname,
+          guest_rut_normalized: resolvedUserId ? null : (normalizedRut || null),
+          is_minor: guestIsMinor,
+          registration_status: 'manual_unpaid'
+        });
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          throw new Error('El jugador ya tiene un registro para este evento.');
+        }
+        throw insertError;
+      }
+
+      setRutInput('');
+      setPlayerNameInput('');
+      setAllowGuestRegistration(false);
+      setGuestIsMinor(false);
+      setStatusMessage('Jugador ingresado como pendiente de pago.');
+      await loadEventData(activeEventId);
+    } catch (error) {
+      setStatusMessage(mapError(error));
+    } finally {
+      setLookupBusy(false);
+    }
+  }
+
   async function movePlayerToTeam(operatorUserId: string, teamSlot: TeamSlot) {
     if (!activeEventId || !supabase) {
       return;
@@ -2177,24 +2246,36 @@ export default function FieldOperationsConsole({
       {activeView === 'evento' && (
         <section className="ops-pane" aria-label="Panel evento">
           <div className="ops-pane-head">
-            <h3>Evento y Registro</h3>
-            <p>Flujo sugerido: crear evento, cerrar inscripciones, operar partida y cerrar evento.</p>
+            <h3>Gestión de Eventos</h3>
+            <p>Selecciona una opción para administrar los eventos de tus canchas.</p>
           </div>
 
-          <article className="ops-card">
-            <h4>Checklist de proceso</h4>
-            <ul className="ops-list">
-              <li>{activeEvent ? '1) Evento creado' : '1) Crear evento'}</li>
-              <li>{registrationLocked ? '2) Inscripciones cerradas' : '2) Cerrar inscripciones cuando corresponda'}</li>
-              <li>{players.length > 0 ? '3) Operadores registrados' : '3) Registrar operadores'}</li>
-              <li>{teamBuckets.alpha.length > 0 && teamBuckets.bravo.length > 0 ? '4) Equipos asignados' : '4) Asignar equipos'}</li>
-              <li>{matches.some((match) => match.status === 'finished' && match.winner_team) ? '5) Ganador definido' : '5) Definir ganador en cierre de partida'}</li>
-              <li>{cards.length > 0 ? '6) Tarjetas aplicadas (si corresponde)' : '6) Aplicar tarjetas de premio/penalizacion'}</li>
-              <li>{activeEvent?.ends_at ? '7) Evento cerrado' : '7) Cerrar evento al finalizar'}</li>
-            </ul>
-          </article>
+          <nav className="ops-subview-tabs" aria-label="Secciones de evento">
+            <button
+              type="button"
+              className={`ops-subview-tab ${eventoSubView === 'generar' ? 'is-active' : ''}`}
+              onClick={() => setEventoSubView('generar')}
+            >
+              Generar Evento
+            </button>
+            <button
+              type="button"
+              className={`ops-subview-tab ${eventoSubView === 'administrar' ? 'is-active' : ''}`}
+              onClick={() => setEventoSubView('administrar')}
+            >
+              Administrar Eventos
+            </button>
+            <button
+              type="button"
+              className={`ops-subview-tab ${eventoSubView === 'jugadores' ? 'is-active' : ''}`}
+              onClick={() => setEventoSubView('jugadores')}
+            >
+              Jugadores Inscritos
+            </button>
+          </nav>
 
-          <section className="ops-grid ops-grid-top">
+          {eventoSubView === 'generar' && (
+            <section className="ops-grid ops-grid-top">
             <article className="ops-card">
               <h4>Crear evento</h4>
               <form className="ops-form" onSubmit={handleCreateEvent}>
@@ -2230,12 +2311,26 @@ export default function FieldOperationsConsole({
                     placeholder="40"
                   />
                 </label>
+                <label>
+                  Precio del Evento ($)
+                  <input
+                    type="number"
+                    min={0}
+                    value={eventPrice}
+                    onChange={(event) => setEventPrice(event.target.value)}
+                    placeholder="25000"
+                  />
+                </label>
                 <button type="submit" disabled={busy}>Crear evento</button>
               </form>
             </article>
+          </section>
+          )}
 
+          {eventoSubView === 'administrar' && (
+            <section className="ops-grid ops-grid-top">
             <article className="ops-card">
-              <h4>Evento activo</h4>
+              <h4>Administración de Eventos</h4>
               <div className="ops-inline-actions" style={{ marginBottom: '8px' }}>
                 <button
                   type="button"
@@ -2351,8 +2446,10 @@ export default function FieldOperationsConsole({
               ) : null}
             </article>
           </section>
+          )}
 
-          <section className="ops-grid ops-grid-bottom">
+          {eventoSubView === 'jugadores' && (
+            <section className="ops-grid ops-grid-bottom">
             <article className="ops-card">
               <h4>Registro de jugador</h4>
               <p className="ops-muted">Si no existe perfil, puedes activarlo como invitado o menor sin historial.</p>
@@ -2391,19 +2488,26 @@ export default function FieldOperationsConsole({
                 />
                 <span>Marcar como menor de edad</span>
               </label>
-              <button type="button" onClick={handleRegisterPlayer} disabled={!activeEventId || lookupBusy || registrationLocked}>
-                {lookupBusy ? 'Registrando...' : 'Registrar en evento'}
-              </button>
+              <div className="ops-inline-actions">
+                <button type="button" onClick={handleRegisterPlayer} disabled={!activeEventId || lookupBusy || registrationLocked}>
+                  {lookupBusy ? 'Registrando...' : 'Registrar Check-In Físico'}
+                </button>
+                <button type="button" onClick={handleManualUnpaidRegistration} disabled={!activeEventId || lookupBusy || registrationLocked}>
+                  Registrar Pendiente de Pago
+                </button>
+              </div>
             </article>
           </section>
 
           <section className="ops-grid ops-grid-bottom">
             <article className="ops-card">
-              <h4>Pipeline pago a cancha</h4>
+              <h4>Listado de Jugadores</h4>
+              
+              <h5 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>Jugadores Pagados</h5>
               <p className="ops-muted">Flujo operativo: pagado - presente - equipo.</p>
               <ul className="ops-list">
-                {paidRegistrations.length === 0 ? <li>No hay inscripciones de pago para este evento.</li> : null}
-                {paidRegistrations.map((registration) => {
+                {paidRegistrations.filter(r => r.registration_status !== 'manual_unpaid').length === 0 ? <li>No hay inscripciones de pago para este evento.</li> : null}
+                {paidRegistrations.filter(r => r.registration_status !== 'manual_unpaid').map((registration) => {
                   const displayName = registration.operator_user_id
                     ? players.find((player) => player.operatorUserId === registration.operator_user_id)?.nickname || `Operador ${registration.operator_user_id.slice(0, 8)}`
                     : registration.guest_nickname || registration.guest_rut_normalized || 'Invitado pagado';
@@ -2448,8 +2552,38 @@ export default function FieldOperationsConsole({
                   );
                 })}
               </ul>
+
+              <h5 style={{ marginTop: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>Jugadores Pendientes de Pago</h5>
+              <p className="ops-muted">Registrados manualmente en la plataforma pero sin pago confirmado.</p>
+              <ul className="ops-list">
+                {paidRegistrations.filter(r => r.registration_status === 'manual_unpaid').length === 0 ? <li>No hay inscripciones pendientes.</li> : null}
+                {paidRegistrations.filter(r => r.registration_status === 'manual_unpaid').map((registration) => {
+                  const displayName = registration.operator_user_id
+                    ? players.find((player) => player.operatorUserId === registration.operator_user_id)?.nickname || `Operador ${registration.operator_user_id.slice(0, 8)}`
+                    : registration.guest_nickname || registration.guest_rut_normalized || 'Invitado pendiente';
+
+                  return (
+                    <li key={registration.id} className="ops-paid-row">
+                      <span>
+                        <strong>{displayName}</strong>
+                        <small>Estado: PENDIENTE</small>
+                      </span>
+                      <div className="ops-inline-actions">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleMarkPaidPresent(registration)}
+                        >
+                          Pago Recibido (Check-in)
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </article>
           </section>
+          )}
 
         </section>
       )}

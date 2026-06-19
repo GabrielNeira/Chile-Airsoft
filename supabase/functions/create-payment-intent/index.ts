@@ -60,7 +60,7 @@ Deno.serve(async (request: Request) => {
     // Buscar info del evento
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('id, title, event_date, field_id')
+      .select('id, title, event_date, field_id, price')
       .eq('id', event_id)
       .single();
 
@@ -89,6 +89,8 @@ Deno.serve(async (request: Request) => {
       accountId = account.id;
     }
 
+    const eventPrice = event.price ?? 25000;
+
     // Crear la preferencia en MercadoPago
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
@@ -103,7 +105,7 @@ Deno.serve(async (request: Request) => {
             title: `Ticket: ${event.title}`,
             description: `Entrada al evento ${event.title} el ${event.event_date}`,
             quantity: 1,
-            unit_price: 25000,
+            unit_price: eventPrice,
             currency_id: 'CLP'
           }
         ],

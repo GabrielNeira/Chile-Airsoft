@@ -83,6 +83,7 @@ create table public.events (
   event_date date not null,
   starts_at timestamptz,
   ends_at timestamptz,
+  price integer default 25000,
   created_by uuid not null references auth.users (id) on delete restrict,
   created_at timestamptz not null default now()
 );
