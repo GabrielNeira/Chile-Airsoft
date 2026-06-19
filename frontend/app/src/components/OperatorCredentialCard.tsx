@@ -153,18 +153,7 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
 
               <div className="oc-corner-qr oc-corner-qr-front" aria-label="QR esquinado frontal de la credencial">
                 <img src={data.qrImageUrl} alt="QR frontal de operador" className="oc-corner-qr-image" />
-                <p className="oc-corner-qr-title">QR Tactico</p>
               </div>
-
-              <header className="oc-header">
-                <div>
-                  <p className="oc-eyebrow">CHILE AIRSOFT</p>
-                  <h2 className="oc-title oc-title-accent">ID Airsoft Chile</h2>
-                </div>
-                <span className={`oc-chip oc-chip-score ${operatorScoreToneClass}`} aria-label={`Operator score ${operatorScore}`}>
-                  {operatorScore}
-                </span>
-              </header>
 
               <div className="oc-body">
                 <div className="oc-avatar-wrap">
@@ -214,20 +203,9 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                 </div>
               </div>
 
-              <div className="oc-critical-grid oc-critical-grid-front">
-                <div className="oc-critical-card">
-                  <p className="oc-critical-label">ID OPERADOR</p>
-                  <p className="oc-critical-value">{data.credentialId}</p>
-                  <p className="oc-critical-sub">Credencial activa</p>
-                </div>
+              <div className="oc-credential-id-minimal">
+                ID: {data.credentialId}
               </div>
-
-              <footer className="oc-footer oc-footer-front">
-                <div>
-                  <p className="oc-footer-title">Frente de Identificacion</p>
-                  <p className="oc-footer-sub">Tarjeta visual de operador para uso en campo.</p>
-                </div>
-              </footer>
             </section>
 
             <section className="oc-face oc-face-back" aria-hidden={!isFlipped}>
