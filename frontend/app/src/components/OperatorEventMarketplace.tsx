@@ -11,6 +11,8 @@ interface ActiveEventRow {
   title: string;
   field_id: string;
   field_name: string;
+  field_address?: string | null;
+  google_maps_url?: string | null;
   event_date: string;
   max_players: number | null;
   registered_count: number;
@@ -24,6 +26,8 @@ interface EventCardViewModel {
   eventId: string;
   title: string;
   fieldName: string;
+  fieldAddress: string | null;
+  googleMapsUrl: string | null;
   eventDate: string;
   maxPlayers: number | null;
   registeredCount: number;
@@ -117,6 +121,8 @@ export default function OperatorEventMarketplace({ enabled }: OperatorEventMarke
         eventId: row.event_id,
         title: row.title,
         fieldName: row.field_name,
+        fieldAddress: row.field_address ?? null,
+        googleMapsUrl: row.google_maps_url ?? null,
         eventDate: row.event_date,
         maxPlayers: row.max_players,
         registeredCount: Number(row.registered_count ?? 0),
@@ -142,32 +148,27 @@ export default function OperatorEventMarketplace({ enabled }: OperatorEventMarke
 
     setBusyEventId(eventCard.eventId);
     setError(null);
+    setStatusMessage('Generando link de pago seguro con Mercado Pago...');
 
     try {
-      const { data, error: registerError } = await supabase.rpc('operator_register_and_pay_event', {
-        p_event_id: eventCard.eventId,
-        p_amount: 25000,
-        p_currency: 'CLP'
+      const { data, error } = await supabase.functions.invoke('create-payment-intent', {
+        body: { event_id: eventCard.eventId }
       });
 
-      if (registerError) {
-        throw registerError;
+      if (error) {
+        throw error;
       }
 
-      const result = (data as { status?: string; payment_order_id?: string } | null) ?? {};
-      const status = String(result.status ?? 'registered_paid');
-
-      if (status === 'already_registered') {
-        setStatusMessage(`Ya estabas registrado en ${eventCard.title}.`);
+      if (data?.status === 'success' && data?.init_point) {
+        // Redirigir a MercadoPago
+        window.location.href = data.init_point;
       } else {
-        setStatusMessage(`Registro y pago confirmado en ${eventCard.title}. Orden: ${String(result.payment_order_id ?? 'N/D')}.`);
+        throw new Error(data?.message || 'Error al generar la orden de pago');
       }
-
-      await loadEvents();
     } catch (registerFailure) {
       setError(mapError(registerFailure));
-    } finally {
       setBusyEventId(null);
+      setStatusMessage('Hubo un problema al contactar a la pasarela de pago.');
     }
   }
 
@@ -212,6 +213,14 @@ export default function OperatorEventMarketplace({ enabled }: OperatorEventMarke
               <p className="operator-event-field">{eventCard.fieldName}</p>
               <h4>{eventCard.title}</h4>
               <p className="operator-event-meta">Fecha: {formatDateLabel(eventCard.eventDate)}</p>
+              {eventCard.fieldAddress && (
+                <p className="operator-event-meta">
+                  📍 {eventCard.fieldAddress}
+                  {eventCard.googleMapsUrl && (
+                    <> - <a href={eventCard.googleMapsUrl} target="_blank" rel="noreferrer" style={{color: '#96e9bf'}}>Abrir Mapa</a></>
+                  )}
+                </p>
+              )}
               <p className="operator-event-meta">Cupos: {slotsLabel}</p>
               <p className="operator-event-meta">Registrados: {eventCard.registeredCount}</p>
               <p className="operator-event-meta">Valor: CLP 25.000</p>

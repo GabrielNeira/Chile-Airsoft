@@ -4,13 +4,14 @@ import OrganizerScannerView from './components/OrganizerScannerView';
 import FieldOperationsConsole from './components/FieldOperationsConsole';
 import GodUserMaintainer from './components/GodUserMaintainer';
 import GodEventsMaintainer from './components/GodEventsMaintainer';
+import GodFieldMaintainer from './components/GodFieldMaintainer';
 import OperatorEventMarketplace from './components/OperatorEventMarketplace';
+import CheckoutResultView from './components/CheckoutResultView';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
-
 type AuthMode = 'login' | 'signup';
 type AdminOpsWorkspace = 'eventos' | 'proceso' | 'scanner' | 'god';
-type GodWorkspace = 'users' | 'events';
+type GodWorkspace = 'users' | 'events' | 'fields';
 
 interface RegistrationForm {
   nickname: string;
@@ -260,6 +261,10 @@ function parseQrPayload(rawQr: string): ParsedQrPayload {
 }
 
 function App() {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/checkout/')) {
+    return <CheckoutResultView />;
+  }
+
   const [authLoading, setAuthLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
@@ -323,7 +328,8 @@ function App() {
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
-  const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations'>('id');
+  const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations' | 'marketplace'>('id');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeAdminWorkspace, setActiveAdminWorkspace] = useState<AdminOpsWorkspace>('eventos');
   const [activeGodWorkspace, setActiveGodWorkspace] = useState<GodWorkspace>('users');
   const [canAccessFieldOperations, setCanAccessFieldOperations] = useState(false);
@@ -331,6 +337,8 @@ function App() {
   const [canManageRoles, setCanManageRoles] = useState(false);
   const [canManageFieldAdminsByEmail, setCanManageFieldAdminsByEmail] = useState(false);
   const [scannerEventId, setScannerEventId] = useState('');
+  const [scannerEventOptions, setScannerEventOptions] = useState<Array<{ id: string; title: string; event_date: string }>>([]);
+  const [scannerEventsLoading, setScannerEventsLoading] = useState(false);
 
   async function resolveFieldOperationsAccessForSession(userId: string): Promise<boolean> {
     if (!supabase) {
@@ -750,6 +758,66 @@ function App() {
   }, [canManageRoles, canManageFieldAdminsByEmail, activeAdminWorkspace]);
 
   useEffect(() => {
+    if (!canAccessFieldOperations || !supabase || !sessionUserId) {
+      setScannerEventOptions([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadScannerEvents() {
+      if (!supabase) return;
+      setScannerEventsLoading(true);
+      try {
+        // Resolve scoped field IDs for this admin
+        let scopedFieldIds: string[] = [];
+        const myFieldsRes = await supabase.rpc('list_accessible_fields_for_operations');
+        if (!myFieldsRes.error && Array.isArray(myFieldsRes.data)) {
+          scopedFieldIds = (myFieldsRes.data as Array<{ id: string }>).map((f) => f.id);
+        }
+
+        let query = supabase
+          .from('events')
+          .select('id,title,event_date')
+          .is('ends_at', null)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (scopedFieldIds.length > 0) {
+          query = query.in('field_id', scopedFieldIds);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (active) {
+          const opts = (data as Array<{ id: string; title: string; event_date: string }> | null) ?? [];
+          setScannerEventOptions(opts);
+          // Auto-select if only one event or current selection is invalid
+          setScannerEventId((prev) => {
+            if (prev && opts.some((o) => o.id === prev)) return prev;
+            return opts[0]?.id ?? '';
+          });
+        }
+      } catch {
+        if (active) {
+          setScannerEventOptions([]);
+        }
+      } finally {
+        if (active) {
+          setScannerEventsLoading(false);
+        }
+      }
+    }
+
+    void loadScannerEvents();
+
+    return () => {
+      active = false;
+    };
+  }, [canAccessFieldOperations, sessionUserId]);
+
+  useEffect(() => {
     let active = true;
 
     async function loadCurrentUserCredential() {
@@ -874,7 +942,7 @@ function App() {
             ?? `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(row?.nickname ?? profile.nickname)}`,
           teamLogoUrl: normalizeAvatarUrl(profile.team_logo_url) ?? undefined,
           qrImageUrl:
-            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`co:${row?.nickname ?? profile.nickname}`)}`,
+            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: profile.user_id, nickname: row?.nickname ?? profile.nickname }))}`,
           iceName: profile.emergency_contact_name ?? 'Sin dato',
           icePhone: emergencyPhones.phone1 || 'Sin dato',
           iceName2: (profile as { emergency_contact_name_2?: string | null }).emergency_contact_name_2 ?? undefined,
@@ -1158,7 +1226,7 @@ function App() {
           avatarUrl: `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(row.nickname)}`,
           teamLogoUrl: undefined,
           qrImageUrl:
-            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`co:${row.nickname}`)}`,
+            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: sessionUserId, nickname: row.nickname }))}`,
           iceName: registrationForm.emergencyContactName,
           icePhone: registrationForm.emergencyContactPhone,
           iceName2: undefined,
@@ -1468,67 +1536,110 @@ function App() {
       : 'operador';
 
   return (
-    <main className="page-shell page-shell-id-focus">
-      <div className="page-bg" />
-      <section className="page-grid page-grid-id-focus">
-        <div className="id-focus-column">
-          <h1 className="page-title">ID Airsoft Chile</h1>
-          <p className="page-subtitle id-session-subtitle">
-            Sesion activa: {(operatorData?.nickname || editForm.nickname || 'operador').trim()} | Perfil: {activeUserTypeLabel}
-          </p>
+    <>
+      <header className="app-header">
+        <div className="app-header-brand">
+          <BrandLogo />
+          <h1 className="app-header-title">ID Airsoft</h1>
+        </div>
+        <button className="hamburger-btn" onClick={() => setIsMenuOpen(true)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </header>
 
-          {needsCredentialSetup ? (
-            <div className="auth-card" style={{ marginBottom: '1rem' }}>
-              <p className="page-subtitle" style={{ marginBottom: '0.75rem' }}>
-                Para obtener tu credencial ID, completa tu identidad y datos de operador.
-              </p>
-              <button type="button" className="primary-btn" onClick={() => setShowCredentialModal(true)}>
-                Completar credencial ID
+      <div className={`menu-overlay ${isMenuOpen ? 'is-open' : ''}`} onClick={() => setIsMenuOpen(false)} />
+      <nav className={`side-menu ${isMenuOpen ? 'is-open' : ''}`}>
+        <div className="side-menu-header">
+          <h2>Menú</h2>
+          <button className="close-menu-btn" onClick={() => setIsMenuOpen(false)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div className="side-menu-body">
+          <div className="menu-group">
+            <h3 className="menu-group-title">Jugador</h3>
+            <button className={`menu-item ${activeExperienceSection === 'id' && !editMode ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('id'); setEditMode(false); setIsMenuOpen(false); }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              Mi Credencial
+            </button>
+            <button className={`menu-item ${editMode ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('id'); setEditMode((prev) => !prev); setEditError(null); setEditHint(null); setIsMenuOpen(false); }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              {editMode ? 'Cancelar edición' : 'Editar mis datos'}
+            </button>
+            <button className={`menu-item ${activeExperienceSection === 'marketplace' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('marketplace'); setIsMenuOpen(false); }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Buscar Eventos
+            </button>
+          </div>
+
+          {canAccessFieldOperations && (
+            <div className="menu-group">
+              <h3 className="menu-group-title">Organizador</h3>
+              <button className={`menu-item ${activeExperienceSection === 'operations' && activeAdminWorkspace === 'eventos' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('operations'); setActiveAdminWorkspace('eventos'); setIsMenuOpen(false); }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                Gestionar Eventos
+              </button>
+              <button className={`menu-item ${activeExperienceSection === 'operations' && activeAdminWorkspace === 'proceso' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('operations'); setActiveAdminWorkspace('proceso'); setIsMenuOpen(false); }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Proceso de Partida
+              </button>
+              <button className={`menu-item ${activeExperienceSection === 'operations' && activeAdminWorkspace === 'scanner' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('operations'); setActiveAdminWorkspace('scanner'); setIsMenuOpen(false); }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M7 7h10"></path><path d="M7 12h10"></path><path d="M7 17h10"></path></svg>
+                Escáner QR
               </button>
             </div>
-          ) : null}
+          )}
 
-          <div className="id-actions" role="toolbar" aria-label="Acciones de cuenta">
-            <button type="button" className="ghost-btn id-action-btn" onClick={handleLogout}>
-              Cerrar sesion
-            </button>
-            {activeExperienceSection === 'id' ? (
-              <button
-                type="button"
-                className={`ghost-btn id-action-btn ${editMode ? 'is-active' : ''}`}
-                onClick={() => {
-                  setEditMode((prev) => !prev);
-                  setEditError(null);
-                  setEditHint(null);
-                }}
-              >
-                {editMode ? 'Cancelar edicion' : 'Editar mis datos'}
+          {isGodAdmin && (
+            <div className="menu-group">
+              <h3 className="menu-group-title">Superadmin GOD</h3>
+              <button className={`menu-item ${activeExperienceSection === 'operations' && activeAdminWorkspace === 'god' && activeGodWorkspace === 'users' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('operations'); setActiveAdminWorkspace('god'); setActiveGodWorkspace('users'); setIsMenuOpen(false); }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Usuarios GOD
               </button>
-            ) : null}
-          </div>
+              <button className={`menu-item ${activeExperienceSection === 'operations' && activeAdminWorkspace === 'god' && activeGodWorkspace === 'events' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('operations'); setActiveAdminWorkspace('god'); setActiveGodWorkspace('events'); setIsMenuOpen(false); }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Eventos GOD
+              </button>
+              <button className={`menu-item ${activeExperienceSection === 'operations' && activeAdminWorkspace === 'god' && activeGodWorkspace === 'fields' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('operations'); setActiveAdminWorkspace('god'); setActiveGodWorkspace('fields'); setIsMenuOpen(false); }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                Canchas GOD
+              </button>
+            </div>
+          )}
 
-          <div className="app-nav-tabs" role="tablist" aria-label="Modo de experiencia">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeExperienceSection === 'id'}
-              className={`app-nav-tab ${activeExperienceSection === 'id' ? 'is-active' : ''}`}
-              onClick={() => setActiveExperienceSection('id')}
-            >
-              ID Operador
+          <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <button className="menu-item" style={{ color: '#ff7262' }} onClick={handleLogout}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Cerrar sesión
             </button>
-            {canAccessFieldOperations ? (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeExperienceSection === 'operations'}
-                className={`app-nav-tab ${activeExperienceSection === 'operations' ? 'is-active' : ''}`}
-                onClick={() => setActiveExperienceSection('operations')}
-              >
-                Operaciones Cancha
-              </button>
-            ) : null}
           </div>
+        </div>
+      </nav>
+
+      <main className="page-shell page-shell-id-focus">
+        <div className="page-bg" />
+        <section className="page-grid page-grid-id-focus">
+          <div className="id-focus-column">
+            <h1 className="page-title" style={{ display: 'none' }}>ID Airsoft Chile</h1>
+
+            {needsCredentialSetup ? (
+              <div className="auth-card" style={{ marginBottom: '1rem' }}>
+                <p className="page-subtitle" style={{ marginBottom: '0.75rem' }}>
+                  Para obtener tu credencial ID, completa tu identidad y datos de operador.
+                </p>
+                <button type="button" className="primary-btn" onClick={() => setShowCredentialModal(true)}>
+                  Completar credencial ID
+                </button>
+              </div>
+            ) : null}
 
           {!canAccessFieldOperations && fieldOpsAccessResolved ? (
             <p className="page-subtitle id-sync-text">
@@ -1678,52 +1789,11 @@ function App() {
                   </button>
                 </form>
               )}
-
-              <OperatorEventMarketplace enabled={Boolean(sessionUserId)} />
             </>
-          ) : canAccessFieldOperations ? (
+          ) : activeExperienceSection === 'marketplace' ? (
+            <OperatorEventMarketplace enabled={Boolean(sessionUserId)} />
+          ) : activeExperienceSection === 'operations' && canAccessFieldOperations ? (
             <>
-              <div className="app-nav-tabs" role="tablist" aria-label="Herramientas de administracion de cancha">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeAdminWorkspace === 'eventos'}
-                  className={`app-nav-tab ${activeAdminWorkspace === 'eventos' ? 'is-active' : ''}`}
-                  onClick={() => setActiveAdminWorkspace('eventos')}
-                >
-                  Crear y Gestionar Evento
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeAdminWorkspace === 'proceso'}
-                  className={`app-nav-tab ${activeAdminWorkspace === 'proceso' ? 'is-active' : ''}`}
-                  onClick={() => setActiveAdminWorkspace('proceso')}
-                >
-                  Proceso Partida
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeAdminWorkspace === 'scanner'}
-                  className={`app-nav-tab ${activeAdminWorkspace === 'scanner' ? 'is-active' : ''}`}
-                  onClick={() => setActiveAdminWorkspace('scanner')}
-                >
-                  Escaner QR
-                </button>
-                {isGodAdmin ? (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={activeAdminWorkspace === 'god'}
-                    className={`app-nav-tab ${activeAdminWorkspace === 'god' ? 'is-active' : ''}`}
-                    onClick={() => setActiveAdminWorkspace('god')}
-                  >
-                    Admin GOD
-                  </button>
-                ) : null}
-              </div>
-
               {activeAdminWorkspace === 'eventos' ? (
                 <FieldOperationsConsole
                   operatorNickname={(operatorData?.nickname || editForm.nickname || 'admin cancha').trim()}
@@ -1749,12 +1819,27 @@ function App() {
                   <summary>Escaner QR (herramienta independiente)</summary>
                   <div className="scanner-pane id-secondary-pane" style={{ display: 'grid', gap: '0.75rem' }}>
                     <label style={{ display: 'grid', gap: '0.25rem', textAlign: 'left' }}>
-                      ID Evento a operar
-                      <input
-                        value={scannerEventId}
-                        onChange={(event) => setScannerEventId(event.target.value)}
-                        placeholder="UUID del evento"
-                      />
+                      Evento a operar
+                      {scannerEventsLoading ? (
+                        <select disabled>
+                          <option>Cargando eventos…</option>
+                        </select>
+                      ) : scannerEventOptions.length === 0 ? (
+                        <select disabled>
+                          <option>Sin eventos abiertos asignados</option>
+                        </select>
+                      ) : (
+                        <select
+                          value={scannerEventId}
+                          onChange={(e) => setScannerEventId(e.target.value)}
+                        >
+                          {scannerEventOptions.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.title} — {opt.event_date}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </label>
 
                     <OrganizerScannerView
@@ -1766,7 +1851,7 @@ function App() {
                         }
 
                         if (!eventId || eventId === 'SIN-EVENTO') {
-                          throw new Error('Debes indicar un ID de evento valido.');
+                          throw new Error('Debes seleccionar un evento valido.');
                         }
 
                         const { error } = await supabase.from('event_checkins').upsert(
@@ -1783,51 +1868,32 @@ function App() {
                           throw error;
                         }
                       }}
-                      onChronoValidate={async ({ eventId, operatorUserId, replicaId, fps, joules, bbWeightG, note }) => {
+                      onAssignTeam={async ({ eventId, operatorUserId, teamSlot }) => {
                         if (!supabase) {
                           throw new Error('Supabase no disponible.');
                         }
 
                         if (!eventId || eventId === 'SIN-EVENTO') {
-                          throw new Error('Debes indicar un ID de evento valido.');
+                          throw new Error('Debes seleccionar un evento valido.');
                         }
 
-                        const { error } = await supabase.from('chrono_validations').insert({
-                          event_id: eventId,
-                          operator_user_id: operatorUserId,
-                          replica_id: replicaId,
-                          fps,
-                          joules,
-                          bb_weight_g: bbWeightG,
-                          note: note || null,
-                          measured_by: sessionUserId
-                        });
-
-                        if (error) {
-                          throw error;
-                        }
-                      }}
-                      onFairPlayReport={async ({ eventId, operatorUserId, status, reason }) => {
-                        if (!supabase) {
-                          throw new Error('Supabase no disponible.');
-                        }
-
-                        if (!eventId || eventId === 'SIN-EVENTO') {
-                          throw new Error('Debes indicar un ID de evento valido.');
-                        }
-
-                        const { error } = await supabase.from('fair_play_reports').insert({
-                          event_id: eventId,
-                          operator_user_id: operatorUserId,
-                          status,
-                          reason: reason || null,
-                          reported_by: sessionUserId
-                        });
+                        const { error } = await supabase
+                          .from('event_team_assignments')
+                          .upsert(
+                            {
+                              event_id: eventId,
+                              operator_user_id: operatorUserId,
+                              team_slot: teamSlot,
+                              assigned_by: sessionUserId
+                            },
+                            { onConflict: 'event_id,operator_user_id' }
+                          );
 
                         if (error) {
                           throw error;
                         }
                       }}
+
                     />
                   </div>
                 </details>
@@ -1835,29 +1901,9 @@ function App() {
 
               {activeAdminWorkspace === 'god' ? (
                 <>
-                  <div className="app-nav-tabs" role="tablist" aria-label="Herramientas de administracion GOD">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={activeGodWorkspace === 'users'}
-                      className={`app-nav-tab ${activeGodWorkspace === 'users' ? 'is-active' : ''}`}
-                      onClick={() => setActiveGodWorkspace('users')}
-                    >
-                      Usuarios GOD
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={activeGodWorkspace === 'events'}
-                      className={`app-nav-tab ${activeGodWorkspace === 'events' ? 'is-active' : ''}`}
-                      onClick={() => setActiveGodWorkspace('events')}
-                    >
-                      Eventos GOD
-                    </button>
-                  </div>
-
                   {activeGodWorkspace === 'users' ? <GodUserMaintainer enabled={isGodAdmin} /> : null}
                   {activeGodWorkspace === 'events' ? <GodEventsMaintainer enabled={isGodAdmin} /> : null}
+                  {activeGodWorkspace === 'fields' ? <GodFieldMaintainer enabled={isGodAdmin} /> : null}
 
                   {isGodAdmin ? (
                     <FieldOperationsConsole
@@ -2068,6 +2114,7 @@ function App() {
         </div>
       ) : null}
     </main>
+    </>
   );
 }
 

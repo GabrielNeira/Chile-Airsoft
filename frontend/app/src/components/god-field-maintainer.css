@@ -1,0 +1,155 @@
+.god-field-maintainer-shell {
+  width: min(100%, 1120px);
+  border: 1px solid rgba(203, 236, 217, 0.2);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(7, 19, 19, 0.52);
+  display: grid;
+  gap: 10px;
+}
+
+.god-field-header {
+  text-align: left;
+}
+
+.god-field-header h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.god-field-header p {
+  margin: 6px 0 0;
+  color: #b8d3c6;
+}
+
+.god-field-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.god-field-toolbar button,
+.form-actions button,
+.god-field-actions button {
+  border-radius: 10px;
+  border: 1px solid rgba(150, 233, 191, 0.46);
+  background: linear-gradient(150deg, rgba(58, 132, 92, 0.94), rgba(22, 63, 50, 0.98));
+  color: #f1fff8;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.god-field-actions button {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.god-field-actions .god-btn-danger {
+  background: linear-gradient(150deg, rgba(162, 54, 54, 0.94), rgba(99, 21, 21, 0.98));
+  border-color: rgba(233, 150, 150, 0.46);
+}
+
+.god-field-form-panel {
+  border: 1px solid rgba(204, 231, 217, 0.2);
+  border-radius: 14px;
+  background: rgba(7, 19, 19, 0.74);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.god-field-form-panel h4 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.god-field-form-panel label {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.god-field-form-panel label span {
+  font-weight: 500;
+  font-size: 14px;
+  color: #d9efe4;
+}
+
+.god-field-form-panel input:not([type="checkbox"]) {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(190, 232, 209, 0.3);
+  background: rgba(6, 12, 13, 0.9);
+  color: #eef8f4;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+
+.checkbox-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  margin-top: 6px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.form-actions button[type="button"] {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+}
+
+.god-field-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid rgba(204, 231, 217, 0.2);
+  border-radius: 14px;
+  background: rgba(7, 19, 19, 0.74);
+  padding: 4px;
+}
+
+.god-field-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.god-field-table th,
+.god-field-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: #d8f3e4;
+}
+
+.god-field-table th {
+  font-weight: 600;
+  color: #bed8cc;
+}
+
+.god-field-table tr:last-child td {
+  border-bottom: none;
+}
+
+.god-field-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.god-field-error {
+  margin: 0;
+  color: #ff9f9f;
+  font-weight: 500;
+}
+
+.god-field-status {
+  margin: 0;
+  font-size: 14px;
+  color: #bed8cc;
+}

@@ -233,10 +233,7 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
             <section className="oc-face oc-face-back" aria-hidden={!isFlipped}>
               <img src="/logo.svg" alt="" aria-hidden="true" className="oc-brand-mark oc-brand-mark-back" />
 
-              <div className="oc-corner-qr oc-corner-qr-back" aria-label="QR esquinado trasero de la credencial">
-                <img src={data.qrImageUrl} alt="QR de validacion operador" className="oc-corner-qr-image" />
-                <p className="oc-corner-qr-title">Validacion</p>
-              </div>
+
 
               <header className="oc-header">
                 <div>
@@ -247,10 +244,12 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
               </header>
 
               <div className="oc-operator-score-wrap">
-                <p className="oc-critical-label">METRICA OPERADOR</p>
-                <div className="oc-operator-score-main">
-                  <span className="oc-operator-score-value">{operatorScore}</span>
-                  <span className="oc-operator-score-max">/100</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                  <img src="/logo.png?v=2" alt="ID Airsoft Logo" style={{ width: '42px', height: '42px', objectFit: 'contain', borderRadius: '50%' }} />
+                  <div>
+                    <h2 style={{ margin: 0, fontFamily: "'Barlow Condensed', sans-serif", fontSize: '24px', letterSpacing: '0.04em', lineHeight: 1 }}>ID AIRSOFT</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--oc-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Plataforma Oficial</p>
+                  </div>
                 </div>
                 <div className="oc-operator-score-breakdown">
                   <span className="oc-score-pill oc-score-pill-green">

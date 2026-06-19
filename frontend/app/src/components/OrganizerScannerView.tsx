@@ -16,6 +16,7 @@ declare global {
 }
 
 type FairPlayStatus = 'green' | 'yellow' | 'red';
+type TeamSlot = 'alpha' | 'bravo' | 'reserve';
 
 interface ScanResult {
   operatorUserId: string;
@@ -29,29 +30,20 @@ interface OrganizerScannerViewProps {
   eventId: string;
   onResolveQr: (rawQr: string) => Promise<ScanResult>;
   onCheckin: (payload: { eventId: string; operatorUserId: string }) => Promise<void>;
-  onChronoValidate: (payload: {
-    eventId: string;
-    operatorUserId: string;
-    replicaId: string;
-    fps: number;
-    joules: number;
-    bbWeightG: number;
-    note?: string;
-  }) => Promise<void>;
-  onFairPlayReport: (payload: {
-    eventId: string;
-    operatorUserId: string;
-    status: FairPlayStatus;
-    reason?: string;
-  }) => Promise<void>;
+  onAssignTeam?: (payload: { eventId: string; operatorUserId: string; teamSlot: TeamSlot }) => Promise<void>;
 }
+
+const TEAM_LABEL: Record<TeamSlot, string> = {
+  alpha: 'Team Alpha',
+  bravo: 'Team Bravo',
+  reserve: 'Reserva'
+};
 
 export function OrganizerScannerView({
   eventId,
   onResolveQr,
   onCheckin,
-  onChronoValidate,
-  onFairPlayReport
+  onAssignTeam
 }: OrganizerScannerViewProps) {
   type ScanTone = 'idle' | 'working' | 'ok' | 'error';
 
@@ -70,14 +62,12 @@ export function OrganizerScannerView({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanTone, setScanTone] = useState<ScanTone>('idle');
 
-  const [replicaId, setReplicaId] = useState('');
-  const [fps, setFps] = useState('');
-  const [joules, setJoules] = useState('');
-  const [bbWeightG, setBbWeightG] = useState('0.20');
-  const [chronoNote, setChronoNote] = useState('');
-
-  const [fairPlayStatus, setFairPlayStatus] = useState<FairPlayStatus>('green');
-  const [fairPlayReason, setFairPlayReason] = useState('');
+  // Check-in & team assignment state
+  const [checkinDone, setCheckinDone] = useState(false);
+  const [assignedTeam, setAssignedTeam] = useState<TeamSlot | null>(null);
+  const [selectedTeamSlot, setSelectedTeamSlot] = useState<TeamSlot>('alpha');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignStatus, setAssignStatus] = useState<string | null>(null);
 
   const canSubmit = useMemo(() => Boolean(target?.operatorUserId), [target]);
 
@@ -86,6 +76,14 @@ export function OrganizerScannerView({
       stopCamera();
     };
   }, []);
+
+  // Reset per-player state whenever a new target is resolved
+  function resetPlayerState() {
+    setCheckinDone(false);
+    setAssignedTeam(null);
+    setSelectedTeamSlot('alpha');
+    setAssignStatus(null);
+  }
 
   async function startCamera() {
     if (cameraActive) {
@@ -187,6 +185,7 @@ export function OrganizerScannerView({
   async function resolveScannedValue(value: string) {
     setRawQr(value);
     setScanTone('working');
+    resetPlayerState();
 
     try {
       setLoading(true);
@@ -213,6 +212,7 @@ export function OrganizerScannerView({
   }
 
   async function handleScanResolve() {
+    resetPlayerState();
     try {
       setLoading(true);
       setScanTone('working');
@@ -231,32 +231,30 @@ export function OrganizerScannerView({
   async function handleCheckin() {
     if (!target) return;
     await onCheckin({ eventId, operatorUserId: target.operatorUserId });
-    setStatus('Check-in confirmado');
+    setCheckinDone(true);
+    setStatus(`Asistencia confirmada: ${target.nickname}. Asigna equipo.`);
   }
 
-  async function handleChrono() {
-    if (!target) return;
-    await onChronoValidate({
-      eventId,
-      operatorUserId: target.operatorUserId,
-      replicaId,
-      fps: Number(fps),
-      joules: Number(joules),
-      bbWeightG: Number(bbWeightG),
-      note: chronoNote || undefined
-    });
-    setStatus('Crono validado');
-  }
-
-  async function handleFairPlay() {
-    if (!target) return;
-    await onFairPlayReport({
-      eventId,
-      operatorUserId: target.operatorUserId,
-      status: fairPlayStatus,
-      reason: fairPlayReason || undefined
-    });
-    setStatus('Fair Play registrado');
+  async function handleAssignTeam() {
+    if (!target || !onAssignTeam) return;
+    setAssignLoading(true);
+    setAssignStatus(null);
+    try {
+      // Si todavia no se hizo check-in, lo hacemos automaticamente
+      // para que el jugador aparezca en el roster de FieldOperationsConsole.
+      if (!checkinDone) {
+        await onCheckin({ eventId, operatorUserId: target.operatorUserId });
+        setCheckinDone(true);
+      }
+      await onAssignTeam({ eventId, operatorUserId: target.operatorUserId, teamSlot: selectedTeamSlot });
+      setAssignedTeam(selectedTeamSlot);
+      setAssignStatus(`${target.nickname} presente y asignado a ${TEAM_LABEL[selectedTeamSlot]}.`);
+      setStatus(`Listo: ${target.nickname} → ${TEAM_LABEL[selectedTeamSlot]}`);
+    } catch (error) {
+      setAssignStatus(`Error al asignar: ${(error as Error).message}`);
+    } finally {
+      setAssignLoading(false);
+    }
   }
 
   return (
@@ -300,34 +298,52 @@ export function OrganizerScannerView({
           <p className="org-target-meta">{target.role} | Sangre {target.bloodGroup}</p>
           <p className="org-target-meta">{target.team || 'Sin team'}</p>
 
+          {/* Asistencia */}
           <div className="org-target-actions">
-            <button disabled={!canSubmit} onClick={handleCheckin}>Marcar Asistencia</button>
+            <button
+              disabled={!canSubmit || checkinDone}
+              onClick={handleCheckin}
+            >
+              {checkinDone ? '✓ Asistencia Confirmada' : 'Marcar Asistencia'}
+            </button>
           </div>
 
-          <hr />
-
-          <h3>Validar Crono</h3>
-          <input className="org-scanner-input" placeholder="Replica ID" value={replicaId} onChange={(e) => setReplicaId(e.target.value)} />
-          <input className="org-scanner-input" placeholder="FPS" value={fps} onChange={(e) => setFps(e.target.value)} />
-          <input className="org-scanner-input" placeholder="Joules" value={joules} onChange={(e) => setJoules(e.target.value)} />
-          <input className="org-scanner-input" placeholder="BB Weight (g)" value={bbWeightG} onChange={(e) => setBbWeightG(e.target.value)} />
-          <input className="org-scanner-input" placeholder="Nota" value={chronoNote} onChange={(e) => setChronoNote(e.target.value)} />
-          <div className="org-target-actions">
-            <button disabled={!canSubmit || !replicaId || !fps || !joules || !bbWeightG} onClick={handleChrono}>Guardar Crono</button>
-          </div>
-
-          <hr />
-
-          <h3>Reporte Fair Play</h3>
-          <select className="org-scanner-input" value={fairPlayStatus} onChange={(e) => setFairPlayStatus(e.target.value as FairPlayStatus)}>
-            <option value="green">Verde</option>
-            <option value="yellow">Amarillo</option>
-            <option value="red">Rojo</option>
-          </select>
-          <input className="org-scanner-input" placeholder="Motivo" value={fairPlayReason} onChange={(e) => setFairPlayReason(e.target.value)} />
-          <div className="org-target-actions">
-            <button disabled={!canSubmit} onClick={handleFairPlay}>Emitir Reporte</button>
-          </div>
+          {/* Asignacion de equipo — siempre visible tras resolver el jugador */}
+          {onAssignTeam && (
+            <div className="org-scanner-team-assign">
+              <h3 className="org-scanner-team-assign-title">Asignar Equipo</h3>
+              <div className="org-scanner-team-slots">
+                {(['alpha', 'bravo', 'reserve'] as TeamSlot[]).map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    className={`org-scanner-team-btn org-scanner-team-btn--${slot}${selectedTeamSlot === slot ? ' is-selected' : ''}${assignedTeam === slot ? ' is-assigned' : ''}`}
+                    onClick={() => setSelectedTeamSlot(slot)}
+                    aria-pressed={selectedTeamSlot === slot}
+                  >
+                    {TEAM_LABEL[slot]}
+                    {assignedTeam === slot ? ' \u2713' : ''}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="org-scanner-team-confirm"
+                disabled={assignLoading || !canSubmit}
+                onClick={handleAssignTeam}
+              >
+                {assignLoading
+                  ? 'Procesando…'
+                  : checkinDone
+                    ? `Confirmar → ${TEAM_LABEL[selectedTeamSlot]}`
+                    : `Marcar presente + ${TEAM_LABEL[selectedTeamSlot]}`}
+              </button>
+              {assignStatus && (
+                <p className={`org-scanner-assign-status${assignedTeam ? ' is-ok' : ' is-error'}`}>
+                  {assignStatus}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

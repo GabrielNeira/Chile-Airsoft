@@ -169,3 +169,120 @@
     width: 100%;
   }
 }
+
+/* ── Team assignment section ─────────────────────────────── */
+.org-scanner-team-assign {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(10, 20, 32, 0.72);
+  border: 1px solid #1e3047;
+}
+
+.org-scanner-team-assign-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #c8d9e4;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.org-scanner-team-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.org-scanner-team-btn {
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  background: #141e2b;
+  color: #a0b4c4;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.org-scanner-team-btn--alpha { border-color: #2a4a7f; color: #7eb5ff; }
+.org-scanner-team-btn--bravo { border-color: #7f2a2a; color: #ff9999; }
+.org-scanner-team-btn--reserve { border-color: #3a4a52; color: #9ab4c4; }
+
+.org-scanner-team-btn.is-selected.org-scanner-team-btn--alpha {
+  background: #1a3360;
+  border-color: #5a90e0;
+  color: #c4dcff;
+  transform: scale(1.03);
+}
+.org-scanner-team-btn.is-selected.org-scanner-team-btn--bravo {
+  background: #601a1a;
+  border-color: #e05a5a;
+  color: #ffc4c4;
+  transform: scale(1.03);
+}
+.org-scanner-team-btn.is-selected.org-scanner-team-btn--reserve {
+  background: #263038;
+  border-color: #7a9eb0;
+  color: #c8dce8;
+  transform: scale(1.03);
+}
+
+.org-scanner-team-btn.is-assigned {
+  box-shadow: 0 0 0 2px rgba(106, 225, 140, 0.55);
+}
+
+.org-scanner-team-confirm {
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #1c8c4e 0%, #157a40 100%);
+  color: #e4fff0;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.org-scanner-team-confirm:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.org-scanner-team-confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.org-scanner-assign-status {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid #364654;
+}
+
+.org-scanner-assign-status.is-ok {
+  color: #d7ffdf;
+  border-color: rgba(106, 225, 140, 0.6);
+  background: rgba(16, 45, 26, 0.6);
+}
+
+.org-scanner-assign-status.is-error {
+  color: #ffdede;
+  border-color: rgba(255, 103, 103, 0.6);
+  background: rgba(61, 18, 18, 0.6);
+}
+
+@media (max-width: 640px) {
+  .org-scanner-team-slots {
+    grid-template-columns: 1fr;
+  }
+}
