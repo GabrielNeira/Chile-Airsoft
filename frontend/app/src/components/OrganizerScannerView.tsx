@@ -259,33 +259,31 @@ export function OrganizerScannerView({
   return (
     <section className="org-scanner-shell">
       <div className="org-scanner-camera-card">
-        {cameraActive ? (
-          <div className={`org-scanner-camera-wrap tone-${scanTone}`}>
-            <video ref={videoRef} className="org-scanner-video" playsInline muted autoPlay />
-            <div className="org-scanner-reticle">
-              <div className="reticle-corner top-left"></div>
-              <div className="reticle-corner top-right"></div>
-              <div className="reticle-corner bottom-left"></div>
-              <div className="reticle-corner bottom-right"></div>
-            </div>
-            <button className="org-scanner-stop-btn" onClick={stopCamera}>
-              ✕ Detener Lente
-            </button>
+        <div className={`org-scanner-camera-wrap tone-${scanTone}`} style={{ display: cameraActive ? 'flex' : 'none' }}>
+          <video ref={videoRef} className="org-scanner-video" playsInline muted autoPlay />
+          <div className="org-scanner-reticle">
+            <div className="reticle-corner top-left"></div>
+            <div className="reticle-corner top-right"></div>
+            <div className="reticle-corner bottom-left"></div>
+            <div className="reticle-corner bottom-right"></div>
           </div>
-        ) : (
-          <div className="org-scanner-camera-idle">
-            <div className="idle-icon-wrap">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M3 8V6a2 2 0 0 1 2-2h2M21 8V6a2 2 0 0 0-2-2h-2M3 16v2a2 2 0 0 0 2 2h2M21 16v2a2 2 0 0 1-2 2h-2"/>
-                <path d="M8 12h8M12 8v8"/>
-              </svg>
-            </div>
-            <p>Escaneo rápido de credencial AirsoftID.</p>
-            <button className="org-scanner-start-btn" onClick={() => void startCamera()}>
-              Activar Lente
-            </button>
+          <button className="org-scanner-stop-btn" onClick={stopCamera}>
+            ✕ Detener Lente
+          </button>
+        </div>
+
+        <div className="org-scanner-camera-idle" style={{ display: !cameraActive ? 'flex' : 'none' }}>
+          <div className="idle-icon-wrap">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M3 8V6a2 2 0 0 1 2-2h2M21 8V6a2 2 0 0 0-2-2h-2M3 16v2a2 2 0 0 0 2 2h2M21 16v2a2 2 0 0 1-2 2h-2"/>
+              <path d="M8 12h8M12 8v8"/>
+            </svg>
           </div>
-        )}
+          <p>Escaneo rápido de credencial AirsoftID.</p>
+          <button className="org-scanner-start-btn" onClick={() => void startCamera()}>
+            Activar Lente
+          </button>
+        </div>
 
         {cameraError ? <p className="org-scanner-error">{cameraError}</p> : null}
       </div>
