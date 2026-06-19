@@ -63,6 +63,7 @@
   background: #000;
   font-family: 'Rajdhani', 'Segoe UI', sans-serif;
   overflow: hidden;
+  height: 100%;
 }
 
 /* Camera full view */
@@ -73,11 +74,15 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  min-height: 60vh;
 }
 
 .org-scanner-camera-wrap {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
