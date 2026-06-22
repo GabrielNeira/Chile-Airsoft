@@ -334,9 +334,9 @@
 }
 
 .skin-selector-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
 }
 
 /* Styled Scrollbar for Selector Panel */
@@ -362,20 +362,154 @@
   background: rgba(9, 15, 22, 0.85);
   padding: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  min-height: 240px;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
 }
 
 .skin-option-card:hover {
   border-color: rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.02);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
 .skin-option-card.is-active {
   border-color: #c8ff5c;
   background: rgba(200, 255, 92, 0.04);
+}
+
+/* Mini Preview Banner inside store cards */
+.skin-mini-preview {
+  height: 80px;
+  width: 100%;
+  border-radius: 12px 12px 0 0;
+  background: #0c1219;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -16px -16px 12px -16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* 3D Animated Flip Previews for Animations Subtab */
+.anim-mini-preview {
+  background: radial-gradient(circle, #1a2633 0%, #0d1620 100%);
+  perspective: 400px;
+}
+
+.mini-card-icon {
+  width: 38px;
+  height: 54px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.mini-card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mini-card-front {
+  background: linear-gradient(135deg, #1f3044, #121d28);
+  color: #c8ff5c;
+  border-color: rgba(200, 255, 92, 0.3);
+}
+
+.mini-card-back {
+  background: linear-gradient(135deg, #2b1125, #140711);
+  color: #ff8df0;
+  transform: rotateY(180deg);
+  border-color: rgba(255, 141, 240, 0.3);
+}
+
+/* Hover / Equipped animation triggers */
+.skin-option-card:hover .mini-card-icon,
+.skin-option-card.is-active .mini-card-icon {
+  transform: rotateY(180deg);
+}
+
+/* Mimic real flip types in mini card icons */
+.skin-option-card:hover .oc-anim-mini-vertical,
+.skin-option-card.is-active .oc-anim-mini-vertical {
+  transform: rotateX(180deg);
+}
+.oc-anim-mini-vertical .mini-card-back {
+  transform: rotateX(180deg);
+}
+
+.skin-option-card:hover .oc-anim-mini-elastic,
+.skin-option-card.is-active .oc-anim-mini-elastic {
+  animation: mini-bounce 0.8s ease-in-out forwards;
+}
+
+.skin-option-card:hover .oc-anim-mini-slow3d,
+.skin-option-card.is-active .oc-anim-mini-slow3d {
+  transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotateY(180deg) scale(0.9);
+}
+
+.skin-option-card:hover .oc-anim-mini-vortex,
+.skin-option-card.is-active .oc-anim-mini-vortex {
+  transform: rotateY(360deg) rotateZ(180deg) scale(0.85);
+}
+
+.skin-option-card:hover .oc-anim-mini-glitch,
+.skin-option-card.is-active .oc-anim-mini-glitch {
+  animation: mini-glitch 0.6s steps(4) infinite;
+}
+
+@keyframes mini-bounce {
+  0% { transform: rotateY(0); }
+  70% { transform: rotateY(200deg); }
+  100% { transform: rotateY(180deg); }
+}
+
+@keyframes mini-glitch {
+  0% { transform: rotateY(0) skewX(0); }
+  33% { transform: rotateY(60deg) skewX(-4deg); }
+  66% { transform: rotateY(120deg) skewX(4deg); }
+  100% { transform: rotateY(180deg) skewX(0); }
+}
+
+/* Card content flow */
+.skin-option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.skin-option-action {
+  margin-top: 12px;
+  display: flex;
+  width: 100%;
+}
+
+.skin-option-action button,
+.skin-option-action span {
+  width: 100% !important;
+  text-align: center;
+  display: block;
 }
 
 .skin-radio-input {

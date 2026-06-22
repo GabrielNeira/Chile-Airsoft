@@ -1709,7 +1709,7 @@ function App() {
       <main className="page-shell page-shell-id-focus">
         <div className="page-bg" />
         <section className="page-grid page-grid-id-focus">
-          <div className="id-focus-column">
+          <div className={`id-focus-column ${activeExperienceSection !== 'id' ? 'is-wide' : ''}`}>
             <h1 className="page-title" style={{ display: 'none' }}>ID Airsoft Chile</h1>
 
             {needsCredentialSetup ? (

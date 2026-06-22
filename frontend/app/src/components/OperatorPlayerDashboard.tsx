@@ -613,26 +613,28 @@ export default function OperatorPlayerDashboard({
                           <div
                             key={item.code}
                             className={`skin-option-card ${isEquipped ? 'is-active' : ''}`}
-                            style={{ position: 'relative', cursor: 'pointer' }}
                             onClick={() => {
                               if (!isEquipped && isUnlocked && equippingCode === null) {
                                 void handleEquipItem('skin', item.code);
                               }
                             }}
                           >
+                            {/* Mini Preview Texture Banner */}
+                            <div className={`skin-mini-preview oc-skin-${item.code}`} />
+
                             <div className="skin-option-info">
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <h3 className="skin-option-name" style={{ fontSize: '16px' }}>{item.name}</h3>
-                                <span className={`achievement-rarity rarity-${item.rarity.replace('ú', 'u')}`} style={{ fontSize: '10px', marginTop: 0 }}>
+                              <div className="skin-option-header">
+                                <h3 className="skin-option-name" style={{ fontSize: '15px' }}>{item.name}</h3>
+                                <span className={`achievement-rarity rarity-${item.rarity.replace('ú', 'u')}`} style={{ fontSize: '9px', marginTop: 0 }}>
                                   {item.rarity}
                                 </span>
                               </div>
-                              <p className="skin-option-desc" style={{ fontSize: '12px' }}>{item.desc}</p>
+                              <p className="skin-option-desc" style={{ fontSize: '12px', minHeight: '32px' }}>{item.desc}</p>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <div className="skin-option-action">
                               {isEquipped ? (
-                                <span style={{ color: '#c8ff5c', fontSize: '13px', fontWeight: 700, padding: '6px 10px' }}>Equipado</span>
+                                <span style={{ color: '#c8ff5c', fontSize: '13px', fontWeight: 700, padding: '6px 10px', background: 'rgba(200, 255, 92, 0.08)', borderRadius: '8px', border: '1px solid rgba(200, 255, 92, 0.2)' }}>Equipado</span>
                               ) : isUnlocked ? (
                                 <button
                                   type="button"
@@ -676,26 +678,33 @@ export default function OperatorPlayerDashboard({
                           <div
                             key={item.code}
                             className={`skin-option-card ${isEquipped ? 'is-active' : ''}`}
-                            style={{ cursor: 'pointer' }}
                             onClick={() => {
                               if (!isEquipped && isUnlocked && equippingCode === null) {
                                 void handleEquipItem('animation', item.code);
                               }
                             }}
                           >
+                            {/* Animated 3D Mini Card Preview */}
+                            <div className="skin-mini-preview anim-mini-preview">
+                              <div className={`mini-card-icon oc-anim-mini-${item.code}`}>
+                                <div className="mini-card-face mini-card-front">ID</div>
+                                <div className="mini-card-face mini-card-back">ICE</div>
+                              </div>
+                            </div>
+
                             <div className="skin-option-info">
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <h3 className="skin-option-name" style={{ fontSize: '16px' }}>{item.name}</h3>
-                                <span className={`achievement-rarity rarity-${item.rarity.replace('ú', 'u')}`} style={{ fontSize: '10px', marginTop: 0 }}>
+                              <div className="skin-option-header">
+                                <h3 className="skin-option-name" style={{ fontSize: '15px' }}>{item.name}</h3>
+                                <span className={`achievement-rarity rarity-${item.rarity.replace('ú', 'u')}`} style={{ fontSize: '9px', marginTop: 0 }}>
                                   {item.rarity}
                                 </span>
                               </div>
-                              <p className="skin-option-desc" style={{ fontSize: '12px' }}>{item.desc}</p>
+                              <p className="skin-option-desc" style={{ fontSize: '12px', minHeight: '32px' }}>{item.desc}</p>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <div className="skin-option-action">
                               {isEquipped ? (
-                                <span style={{ color: '#c8ff5c', fontSize: '13px', fontWeight: 700, padding: '6px 10px' }}>Equipado</span>
+                                <span style={{ color: '#c8ff5c', fontSize: '13px', fontWeight: 700, padding: '6px 10px', background: 'rgba(200, 255, 92, 0.08)', borderRadius: '8px', border: '1px solid rgba(200, 255, 92, 0.2)' }}>Equipado</span>
                               ) : isUnlocked ? (
                                 <button
                                   type="button"
@@ -727,8 +736,6 @@ export default function OperatorPlayerDashboard({
                           </div>
                         );
                       })}
-
-
                     </div>
 
                     {/* Preview Column */}
