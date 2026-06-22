@@ -1,172 +1,985 @@
 .god-shell {
-  width: min(100%, 1120px);
-  border: 1px solid rgba(203, 236, 217, 0.2);
-  border-radius: 18px;
-  padding: 12px;
-  background: rgba(7, 19, 19, 0.52);
+  width: min(100%, 1380px);
+  margin: 0 auto;
+  border: 1px solid rgba(203, 236, 217, 0.18);
+  border-radius: 20px;
+  padding: 20px;
+  background: rgba(7, 19, 19, 0.65);
+  backdrop-filter: blur(12px);
   display: grid;
-  gap: 10px;
+  gap: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 .god-header {
-  text-align: left;
+  border-bottom: 1px solid rgba(203, 236, 217, 0.1);
+  padding-bottom: 14px;
 }
 
 .god-title {
   margin: 0;
-  font-size: 24px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #eef8f4, #8ee8be);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .god-subtitle {
   margin: 6px 0 0;
-  color: #b8d3c6;
+  color: #a8c6b8;
+  font-size: 14px;
 }
 
 .god-toolbar {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
+  gap: 12px;
 }
 
-.god-toolbar input,
-.god-form input,
-.god-form select,
-.god-card input,
-.god-card select {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid rgba(190, 232, 209, 0.3);
-  background: rgba(6, 12, 13, 0.9);
+.god-toolbar input {
+  border-radius: 12px;
+  border: 1px solid rgba(190, 232, 209, 0.25);
+  background: rgba(4, 9, 10, 0.85);
   color: #eef8f4;
-  padding: 9px 10px;
-  font-size: 14px;
+  padding: 12px 16px;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-.god-toolbar button,
-.god-inline-actions button {
-  border-radius: 10px;
+.god-toolbar input:focus {
+  border-color: rgba(142, 232, 190, 0.8);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(142, 232, 190, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.god-toolbar button {
+  border-radius: 12px;
   border: 1px solid rgba(150, 233, 191, 0.46);
-  background: linear-gradient(150deg, rgba(58, 132, 92, 0.94), rgba(22, 63, 50, 0.98));
-  color: #f1fff8;
-  padding: 9px 12px;
+  background: linear-gradient(150deg, rgba(46, 117, 80, 0.94), rgba(15, 48, 38, 0.98));
+  color: #ffffff;
+  padding: 0 24px;
   cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.god-toolbar button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 117, 80, 0.3);
+  filter: brightness(1.1);
+}
+
+.god-toolbar button:active {
+  transform: translateY(1px);
+}
+
+/* LAYOUT STRUCTURE */
+.god-maintainer-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* SIDEBAR LIST */
+.god-sidebar {
+  border: 1px solid rgba(204, 231, 217, 0.12);
+  border-radius: 16px;
+  background: rgba(4, 10, 10, 0.75);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.god-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+}
+
+.god-sidebar-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #eef8f4;
+}
+
+.god-count-badge {
+  background: rgba(142, 232, 190, 0.15);
+  border: 1px solid rgba(142, 232, 190, 0.3);
+  color: #8ee8be;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
-.god-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.god-user-list-container {
+  max-height: 580px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
-.god-card {
-  border: 1px solid rgba(204, 231, 217, 0.2);
-  border-radius: 14px;
-  background: rgba(7, 19, 19, 0.74);
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-  text-align: left;
+/* Custom Scrollbar */
+.god-user-list-container::-webkit-scrollbar,
+.god-tab-content::-webkit-scrollbar {
+  width: 6px;
 }
 
-.god-card h4 {
-  margin: 0;
-  font-size: 17px;
+.god-user-list-container::-webkit-scrollbar-track,
+.god-tab-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
 }
 
-.god-list {
+.god-user-list-container::-webkit-scrollbar-thumb,
+.god-tab-content::-webkit-scrollbar-thumb {
+  background: rgba(204, 231, 217, 0.15);
+  border-radius: 3px;
+}
+
+.god-user-cards-list {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 7px;
-  max-height: 340px;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.god-user-btn {
+.god-user-card-btn {
   width: 100%;
   text-align: left;
-  border: 1px solid rgba(192, 230, 210, 0.22);
-  border-radius: 10px;
-  background: rgba(13, 28, 22, 0.66);
+  border: 1px solid rgba(192, 230, 210, 0.12);
+  border-radius: 12px;
+  background: rgba(13, 28, 22, 0.45);
   color: #eafaf2;
-  padding: 8px;
-  display: grid;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.god-user-card-btn:hover {
+  border-color: rgba(142, 232, 190, 0.35);
+  background: rgba(21, 46, 36, 0.45);
+  transform: translateX(3px);
+}
+
+.god-user-card-btn.is-active {
+  border-color: rgba(137, 226, 182, 0.65);
+  background: linear-gradient(135deg, rgba(27, 68, 49, 0.8), rgba(12, 33, 24, 0.9));
+  box-shadow: 0 4px 15px rgba(27, 68, 49, 0.25);
+}
+
+.god-card-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50px;
+  border: 2px solid rgba(142, 232, 190, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.god-user-card-btn.is-active .god-card-avatar {
+  border-color: #8ee8be;
+  box-shadow: 0 0 10px rgba(142, 232, 190, 0.2);
+}
+
+.god-card-info {
+  display: flex;
+  flex-direction: column;
   gap: 3px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.god-card-nickname {
+  font-weight: 700;
+  font-size: 15px;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.god-card-email {
+  font-size: 12px;
+  color: #a0bdb0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.god-card-role-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.god-role-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.god-role-pill.is-super_admin {
+  background: rgba(255, 99, 132, 0.15);
+  border: 1px solid rgba(255, 99, 132, 0.4);
+  color: #ff6384;
+}
+
+.god-role-pill.is-organizer {
+  background: rgba(255, 159, 64, 0.15);
+  border: 1px solid rgba(255, 159, 64, 0.4);
+  color: #ff9f40;
+}
+
+.god-role-pill.is-field_admin {
+  background: rgba(54, 162, 235, 0.15);
+  border: 1px solid rgba(54, 162, 235, 0.4);
+  color: #36a2eb;
+}
+
+.god-role-pill.is-player {
+  background: rgba(75, 192, 192, 0.15);
+  border: 1px solid rgba(75, 192, 192, 0.4);
+  color: #4bc0c0;
+}
+
+.god-role-pill.is-none {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #b0b0b0;
+}
+
+.god-empty-msg {
+  color: #8da398;
+  font-style: italic;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* DETAILS PANE */
+.god-detail-pane {
+  border: 1px solid rgba(204, 231, 217, 0.12);
+  border-radius: 16px;
+  background: rgba(5, 14, 14, 0.82);
+  padding: 20px;
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+}
+
+.god-detail-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #8da398;
+  text-align: center;
+  padding: 40px;
+}
+
+.god-detail-empty span {
+  font-size: 56px;
+  opacity: 0.35;
+}
+
+.god-detail-empty p {
+  font-size: 15px;
+  max-width: 320px;
+  margin: 0;
+}
+
+.god-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.god-detail-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50px;
+  border: 3px solid #8ee8be;
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 10px rgba(142, 232, 190, 0.2);
+}
+
+.god-detail-title-block h3 {
+  margin: 0;
+  font-size: 22px;
+  color: #ffffff;
+}
+
+.god-detail-title-block p {
+  margin: 4px 0 0;
+  color: #8ee8be;
+  font-size: 14px;
+}
+
+/* TABS SYSTEM */
+.god-detail-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.god-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #a8c6b8;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.god-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.god-tab-btn.is-active {
+  color: #8ee8be;
+  border-bottom-color: #8ee8be;
+}
+
+.god-tab-content {
+  flex: 1;
+  max-height: 540px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* FORMS CRUD */
+.god-detail-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.god-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.god-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.god-form-field.label-full {
+  grid-column: span 2;
+}
+
+.god-form-field span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #a0bdb0;
+}
+
+.god-form-field input,
+.god-form-field select,
+.god-form-field textarea {
+  border-radius: 10px;
+  border: 1px solid rgba(190, 232, 209, 0.2);
+  background: rgba(6, 12, 13, 0.85);
+  color: #eef8f4;
+  padding: 10px 12px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.god-form-field input:focus,
+.god-form-field select:focus,
+.god-form-field textarea:focus {
+  border-color: rgba(142, 232, 190, 0.6);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(142, 232, 190, 0.1);
+}
+
+.god-form-field input.is-readonly {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: transparent;
+  color: #8b9d95;
+  cursor: not-allowed;
+}
+
+.god-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 10px 0;
+}
+
+.god-section-subtitle {
+  margin: 4px 0 8px;
+  font-size: 15px;
+  color: #8ee8be;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.god-section-desc {
+  margin: -4px 0 16px;
+  font-size: 13px;
+  color: #a8c6b8;
+}
+
+.god-form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.god-btn-primary,
+.god-btn-danger,
+.god-btn-cancel,
+.god-btn-confirm-delete {
+  border-radius: 10px;
+  padding: 11px 20px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.god-btn-primary {
+  border: 1px solid rgba(150, 233, 191, 0.4);
+  background: linear-gradient(150deg, rgba(46, 117, 80, 0.95), rgba(15, 48, 38, 0.98));
+  color: #ffffff;
+  flex: 1;
+}
+
+.god-btn-primary:hover {
+  box-shadow: 0 4px 15px rgba(46, 117, 80, 0.35);
+  filter: brightness(1.1);
+}
+
+.god-btn-danger {
+  border: 1px solid rgba(255, 99, 132, 0.35);
+  background: rgba(45, 12, 18, 0.85);
+  color: #ff758f;
+}
+
+.god-btn-danger:hover {
+  background: rgba(255, 99, 132, 0.15);
+  color: #ff4d6d;
+}
+
+/* METRICS TAB */
+.god-metrics-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.god-metric-card {
+  border: 1px solid rgba(204, 231, 217, 0.1);
+  border-radius: 14px;
+  background: rgba(13, 28, 22, 0.4);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.god-metric-card.highlight {
+  border-color: rgba(142, 232, 190, 0.25);
+  background: linear-gradient(135deg, rgba(16, 36, 28, 0.65), rgba(8, 20, 16, 0.85));
+}
+
+.god-metric-icon {
+  font-size: 26px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.god-metric-data {
+  display: flex;
+  flex-direction: column;
+}
+
+.god-metric-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.god-metric-label {
+  font-size: 12px;
+  color: #a8c6b8;
+}
+
+.god-fairplay-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.god-fp-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid;
+}
+
+.god-fp-badge.green {
+  background: rgba(46, 117, 80, 0.12);
+  border-color: rgba(46, 117, 80, 0.35);
+  color: #8ee8be;
+}
+
+.god-fp-badge.yellow {
+  background: rgba(255, 159, 64, 0.12);
+  border-color: rgba(255, 159, 64, 0.35);
+  color: #ff9f40;
+}
+
+.god-fp-badge.red {
+  background: rgba(255, 99, 132, 0.12);
+  border-color: rgba(255, 99, 132, 0.35);
+  color: #ff6384;
+}
+
+.god-fp-badge .count {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.god-fp-badge .label {
+  font-size: 11px;
+  margin-top: 4px;
+  opacity: 0.9;
+}
+
+.god-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.god-metrics-table th,
+.god-metrics-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 14px;
+}
+
+.god-metrics-table th {
+  color: #a0bdb0;
+  font-weight: 700;
+  width: 50%;
+}
+
+.god-metrics-table td {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* ACHIEVEMENTS TAB */
+.god-achievements-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.god-achievement-item {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  transition: all 0.25s ease;
+}
+
+.god-achievement-item.is-unlocked {
+  border-color: rgba(142, 232, 190, 0.25);
+  background: linear-gradient(135deg, rgba(13, 28, 22, 0.35), rgba(7, 19, 19, 0.5));
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.god-achievement-item.is-locked {
+  opacity: 0.55;
+  filter: grayscale(0.85);
+}
+
+.god-achievement-item .ach-icon {
+  font-size: 32px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  border-radius: 12px;
+  display: inline-flex;
+}
+
+.god-achievement-item.is-unlocked .ach-icon {
+  background: rgba(142, 232, 190, 0.08);
+  box-shadow: 0 0 10px rgba(142, 232, 190, 0.05);
+}
+
+.god-achievement-item .ach-body {
+  flex: 1;
+}
+
+.god-achievement-item .ach-body h5 {
+  margin: 0;
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.god-achievement-item .ach-body p {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: #b0c9bd;
+  line-height: 1.4;
+}
+
+.god-achievement-item .ach-footer-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.god-achievement-item .rarity {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.god-achievement-item .rarity.rarity-comun {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #d1d5db;
+}
+
+.god-achievement-item .rarity.rarity-raro {
+  border-color: rgba(54, 162, 235, 0.35);
+  color: #36a2eb;
+}
+
+.god-achievement-item .rarity.rarity-legendario {
+  border-color: rgba(255, 193, 7, 0.35);
+  color: #ffc107;
+}
+
+.god-achievement-item .status-pill {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.god-achievement-item .status-pill.unlocked {
+  color: #8ee8be;
+}
+
+.god-achievement-item .status-pill.locked {
+  color: #8a9d94;
+}
+
+/* ROLES & CANCHAS TAB */
+.god-roles-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.god-roles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.god-role-toggle-item {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.god-role-toggle-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.god-role-toggle-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #8ee8be;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.god-role-toggle-item .toggle-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.god-role-toggle-item .toggle-label strong {
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.god-role-toggle-item .toggle-label .role-code {
+  font-size: 11px;
+  color: #8da398;
+}
+
+.god-roles-reason-block {
+  margin-top: 6px;
+}
+
+.god-roles-reason-block label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.god-roles-reason-block span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #a0bdb0;
+}
+
+.god-roles-reason-block input {
+  border-radius: 10px;
+  border: 1px solid rgba(190, 232, 209, 0.2);
+  background: rgba(6, 12, 13, 0.85);
+  color: #eef8f4;
+  padding: 10px 12px;
+  font-size: 14px;
+  width: 100%;
+}
+
+.god-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.god-field-checkbox-card {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.god-field-checkbox-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.god-field-checkbox-card input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #8ee8be;
   cursor: pointer;
 }
 
-.god-user-btn.is-active {
-  border-color: rgba(137, 226, 182, 0.7);
-  background: rgba(31, 77, 56, 0.6);
-}
-
-.god-user-btn span,
-.god-user-btn small,
-.god-muted {
-  color: #bed8cc;
-}
-
-.god-form {
-  display: grid;
-  gap: 7px;
-}
-
-.god-form label,
-.god-card label {
-  display: grid;
-  gap: 4px;
-}
-
-.god-inline-actions {
+.god-field-checkbox-card .checkbox-card-body {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.god-field-checkbox-card .checkbox-card-body strong {
+  font-size: 13px;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.god-field-checkbox-card .checkbox-card-body span {
+  font-size: 11px;
+  color: #8da398;
+}
+
+/* LOADER & GENERAL STATUS */
+.god-loader-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 0;
+  color: #a8c6b8;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(142, 232, 190, 0.15);
+  border-radius: 50%;
+  border-top-color: #8ee8be;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .god-error {
   margin: 0;
-  color: #ff9f9f;
+  color: #ff758f;
+  background: rgba(255, 99, 132, 0.08);
+  border: 1px solid rgba(255, 99, 132, 0.2);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
 }
 
 .god-status {
   margin: 0;
-  color: #d8f3e4;
+  color: #8ee8be;
+  background: rgba(46, 117, 80, 0.08);
+  border: 1px solid rgba(46, 117, 80, 0.2);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
 }
 
+/* MODAL DELETION */
 .god-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(3, 10, 12, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(3, 10, 12, 0.82);
+  backdrop-filter: blur(5px);
   display: grid;
   place-items: center;
   padding: 12px;
-  z-index: 90;
+  z-index: 1000;
 }
 
 .god-modal-card {
-  width: min(100%, 520px);
-  border: 1px solid rgba(203, 236, 217, 0.24);
-  border-radius: 14px;
-  background: rgba(8, 18, 17, 0.96);
-  padding: 14px;
+  width: min(100%, 540px);
+  border: 1px solid rgba(203, 236, 217, 0.2);
+  border-radius: 18px;
+  background: rgba(8, 20, 18, 0.98);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+  padding: 24px;
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .god-modal-card h4 {
   margin: 0;
+  font-size: 18px;
+  color: #ff758f;
+  font-weight: 800;
 }
 
 .god-modal-card p {
   margin: 0;
-  color: #d8f3e4;
+  color: #eef8f4;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
+.god-modal-card p.warning-text {
+  background: rgba(255, 193, 7, 0.05);
+  border-left: 3px solid #ffc107;
+  padding: 10px 12px;
+  color: #ffe082;
+}
+
+.god-btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #eef8f4;
+}
+
+.god-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.god-btn-confirm-delete {
+  background: linear-gradient(150deg, rgba(167, 29, 49, 0.95), rgba(74, 11, 22, 0.98));
+  border: 1px solid rgba(255, 99, 132, 0.4);
+  color: #ffffff;
+  flex: 1;
+}
+
+.god-btn-confirm-delete:hover {
+  box-shadow: 0 4px 15px rgba(167, 29, 49, 0.4);
+  filter: brightness(1.1);
+}
+
+/* RESPONSIVE LAYOUT */
 @media (max-width: 980px) {
-  .god-grid {
+  .god-maintainer-layout {
     grid-template-columns: 1fr;
+  }
+
+  .god-sidebar {
+    max-height: 380px;
+  }
+
+  .god-user-list-container {
+    max-height: 280px;
+  }
+
+  .god-form-grid,
+  .god-metrics-summary-grid,
+  .god-fields-grid,
+  .god-roles-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .god-form-field.label-full {
+    grid-column: span 1;
   }
 }
