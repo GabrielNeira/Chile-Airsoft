@@ -7,6 +7,7 @@ import GodEventsMaintainer from './components/GodEventsMaintainer';
 import GodFieldMaintainer from './components/GodFieldMaintainer';
 import OperatorEventMarketplace from './components/OperatorEventMarketplace';
 import CheckoutResultView from './components/CheckoutResultView';
+import OperatorPlayerDashboard from './components/OperatorPlayerDashboard';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 type AuthMode = 'login' | 'signup';
@@ -328,7 +329,10 @@ function App() {
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
-  const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations' | 'marketplace'>('id');
+  const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations' | 'marketplace' | 'dashboard'>('id');
+  const [equippedSkin, setEquippedSkin] = useState<string>('multicam');
+  const [equippedAnimation, setEquippedAnimation] = useState<string>('classic');
+  const [equippedSound, setEquippedSound] = useState<string>('classic');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeAdminWorkspace, setActiveAdminWorkspace] = useState<AdminOpsWorkspace>('eventos');
   const [activeGodWorkspace, setActiveGodWorkspace] = useState<GodWorkspace>('users');
@@ -339,6 +343,50 @@ function App() {
   const [scannerEventId, setScannerEventId] = useState('');
   const [scannerEventOptions, setScannerEventOptions] = useState<Array<{ id: string; title: string; event_date: string }>>([]);
   const [scannerEventsLoading, setScannerEventsLoading] = useState(false);
+
+  async function handleEquipSkin(skin: string) {
+    if (!sessionUserId) return;
+    setEquippedSkin(skin);
+    localStorage.setItem(`equipped_skin_${sessionUserId}`, skin);
+
+    if (supabase) {
+      const { error } = await supabase
+        .from('operator_id_loadout')
+        .upsert({
+          operator_user_id: sessionUserId,
+          equipped_skin_code: skin,
+          updated_at: new Date().toISOString()
+        });
+      if (error) {
+        console.error('Error syncing skin to Database, using local fallback:', error);
+      }
+    }
+  }
+
+  async function handleEquipAnimation(anim: string) {
+    if (!sessionUserId) return;
+    setEquippedAnimation(anim);
+    localStorage.setItem(`equipped_animation_${sessionUserId}`, anim);
+
+    if (supabase) {
+      const { error } = await supabase
+        .from('operator_id_loadout')
+        .upsert({
+          operator_user_id: sessionUserId,
+          equipped_animation_code: anim,
+          updated_at: new Date().toISOString()
+        });
+      if (error) {
+        console.error('Error syncing animation to Database, using local fallback:', error);
+      }
+    }
+  }
+
+  async function handleEquipSound(sound: string) {
+    if (!sessionUserId) return;
+    setEquippedSound(sound);
+    localStorage.setItem(`equipped_sound_${sessionUserId}`, sound);
+  }
 
   async function resolveFieldOperationsAccessForSession(userId: string): Promise<boolean> {
     if (!supabase) {
@@ -918,9 +966,44 @@ function App() {
           }
         }
 
+        let dbSkin: string = 'multicam';
+        let dbAnim: string = 'classic';
+        let dbSound: string = 'classic';
+        try {
+          if (supabase) {
+            const { data: loadoutData } = await supabase
+              .from('operator_id_loadout')
+              .select('equipped_skin_code, equipped_animation_code')
+              .eq('operator_user_id', sessionUserId)
+              .maybeSingle();
+            
+            if (loadoutData?.equipped_skin_code) {
+              dbSkin = loadoutData.equipped_skin_code;
+            } else {
+              dbSkin = localStorage.getItem(`equipped_skin_${sessionUserId}`) || 'multicam';
+            }
+
+            if (loadoutData?.equipped_animation_code) {
+              dbAnim = loadoutData.equipped_animation_code;
+            } else {
+              dbAnim = localStorage.getItem(`equipped_animation_${sessionUserId}`) || 'classic';
+            }
+          } else {
+            dbSkin = localStorage.getItem(`equipped_skin_${sessionUserId}`) || 'multicam';
+            dbAnim = localStorage.getItem(`equipped_animation_${sessionUserId}`) || 'classic';
+          }
+          dbSound = localStorage.getItem(`equipped_sound_${sessionUserId}`) || 'classic';
+        } catch (skinLoadError) {
+          console.error('Error loading cosmetics loadout:', skinLoadError);
+        }
+
         if (!active) {
           return;
         }
+
+        setEquippedSkin(dbSkin);
+        setEquippedAnimation(dbAnim);
+        setEquippedSound(dbSound);
 
         const emergencyPhones = splitEmergencyPhones(profile.emergency_contact_phone);
 
@@ -1564,6 +1647,10 @@ function App() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
               Mi Credencial
             </button>
+            <button className={`menu-item ${activeExperienceSection === 'dashboard' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('dashboard'); setEditMode(false); setIsMenuOpen(false); }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+              Mi Dashboard
+            </button>
             <button className={`menu-item ${editMode ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('id'); setEditMode((prev) => !prev); setEditError(null); setEditHint(null); setIsMenuOpen(false); }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
               {editMode ? 'Cancelar edición' : 'Editar mis datos'}
@@ -1649,7 +1736,12 @@ function App() {
 
               <div className="id-card-wrap">
                 {operatorData ? (
-                  <OperatorCredentialCard data={operatorData} defaultSkin="multicam" />
+                  <OperatorCredentialCard
+                    data={operatorData}
+                    defaultSkin={equippedSkin}
+                    equippedAnimation={equippedAnimation}
+                    equippedSound={equippedSound}
+                  />
                 ) : (
                   <p className="page-subtitle">
                     No se pudo construir la credencial del operador con los datos actuales de perfil.
@@ -1787,6 +1879,17 @@ function App() {
             </>
           ) : activeExperienceSection === 'marketplace' ? (
             <OperatorEventMarketplace enabled={Boolean(sessionUserId)} />
+          ) : activeExperienceSection === 'dashboard' ? (
+            <OperatorPlayerDashboard
+              userId={sessionUserId}
+              operatorData={operatorData}
+              equippedSkin={equippedSkin}
+              equippedAnimation={equippedAnimation}
+              equippedSound={equippedSound}
+              onEquipSkin={handleEquipSkin}
+              onEquipAnimation={handleEquipAnimation}
+              onEquipSound={handleEquipSound}
+            />
           ) : activeExperienceSection === 'operations' && canAccessFieldOperations ? (
             <>
               {activeAdminWorkspace === 'eventos' ? (

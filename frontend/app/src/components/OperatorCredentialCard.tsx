@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './operator-credential.css';
 
-type Skin = 'multicam' | 'golden' | 'kittens';
+type Skin = string; // Support a dynamic list of skins
 
 export interface OperatorCredentialData {
   nickname: string;
@@ -31,15 +31,12 @@ export interface OperatorCredentialData {
 interface OperatorCredentialCardProps {
   data: OperatorCredentialData;
   defaultSkin?: Skin;
+  equippedAnimation?: string;
+  equippedSound?: string;
 }
 
-const skinLabel: Record<Skin, string> = {
-  multicam: 'Camo Militar',
-  golden: 'Golden Card',
-  kittens: 'Gatitos Pastel'
-};
 
-const skinOrder: Skin[] = ['golden', 'kittens', 'multicam'];
+
 
 function getRoleDisplay(role: string): { label: string; short: string } {
   const normalized = (role || '').trim().toLowerCase();
@@ -58,7 +55,11 @@ function getRoleDisplay(role: string): { label: string; short: string } {
   return known[normalized] ?? { label: role || 'Operador', short: 'OP' };
 }
 
-export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: OperatorCredentialCardProps) {
+export function OperatorCredentialCard({
+  data,
+  defaultSkin = 'multicam',
+  equippedAnimation = 'classic'
+}: OperatorCredentialCardProps) {
   const [skin, setSkin] = useState<Skin>(defaultSkin);
   const [isFlipped, setIsFlipped] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState(data.avatarUrl);
@@ -75,6 +76,10 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
     setTeamLogoVisible(Boolean(data.teamLogoUrl));
   }, [data.teamLogoUrl]);
 
+  useEffect(() => {
+    setSkin(defaultSkin);
+  }, [defaultSkin]);
+
   const statusColorClass = useMemo(() => {
     if (data.bloodGroup.startsWith('O')) {
       return 'oc-tag-danger';
@@ -85,10 +90,7 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
     return 'oc-tag-safe';
   }, [data.bloodGroup]);
 
-
-
   const roleDisplay = useMemo(() => getRoleDisplay(data.role), [data.role]);
-  const isLongTeamName = (data.team?.trim().length ?? 0) > 30;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLElement>) => {
     touchStartX.current = event.changedTouches[0]?.clientX ?? null;
@@ -114,16 +116,31 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
     <section className="oc-shell" aria-label="Credencial de Operador">
       <div className="oc-flip-wrap">
         <article
-          className={`oc-card oc-skin-${skin} ${isFlipped ? 'is-flipped' : ''}`}
+          className={`oc-card oc-skin-${skin} oc-anim-${equippedAnimation} ${isFlipped ? 'is-flipped' : ''}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          onClick={() => setIsFlipped((prev) => !prev)}
+          style={{ cursor: 'pointer' }}
         >
           <div className="oc-card-inner">
-            <section className={`oc-face oc-face-front ${isLongTeamName ? 'oc-front-long-team' : ''}`} aria-hidden={isFlipped}>
-              <img src="/logo.svg" alt="" aria-hidden="true" className="oc-brand-mark oc-brand-mark-front" />
+            {/* ═══════ FRONT FACE ═══════ */}
+            <section className="oc-face oc-face-front" aria-hidden={isFlipped}>
 
-              <div className="oc-front-layout">
-                <div className="oc-front-top">
+              <div className="oc-front">
+                {/* Header with institutional logo */}
+                <header className="oc-header">
+                  <div className="oc-header-brand">
+                    <img src="/logo.png?v=2" alt="ID Airsoft" className="oc-header-logo" />
+                    <div>
+                      <p className="oc-eyebrow">CHILE AIRSOFT</p>
+                      <h2 className="oc-title">Credencial de Operador</h2>
+                    </div>
+                  </div>
+                  <span className="oc-chip">CO</span>
+                </header>
+
+                {/* Identity: Avatar + Info */}
+                <div className="oc-identity">
                   <div className="oc-avatar-wrap">
                     <img
                       src={avatarSrc}
@@ -133,7 +150,6 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                         if (avatarFallbackTried) {
                           return;
                         }
-
                         setAvatarFallbackTried(true);
                         setAvatarSrc(
                           `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(data.nickname)}`
@@ -141,124 +157,133 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                       }}
                     />
                   </div>
-                  <div className="oc-user-core-info">
+                  <div className="oc-info">
                     <p className="oc-nickname">{data.nickname}</p>
                     <p className="oc-realname">{data.realName}</p>
                     <p className={`oc-tag ${statusColorClass}`}>SANGRE {data.bloodGroup}</p>
                   </div>
                 </div>
 
-                <div className="oc-front-bottom">
-                  <div className="oc-team-role-wrap">
-                    {data.teamLogoUrl && teamLogoVisible ? (
-                      <img
-                        src={data.teamLogoUrl}
-                        alt={`Logo de ${data.team || 'team'}`}
-                        className="oc-team-logo"
-                        onError={() => setTeamLogoVisible(false)}
-                      />
-                    ) : null}
-                    <div className="oc-team-role-text">
-                      <p className={`oc-team ${isLongTeamName ? 'is-long' : ''}`}>{data.team ? `TEAM ${data.team}` : 'SIN TEAM'}</p>
-                      
-                      <div className="oc-role-emblem" aria-label={`Rol ${roleDisplay.label}`}>
-                        <svg viewBox="0 0 24 24" className="oc-role-emblem-icon" aria-hidden="true">
-                          <path d="M12 2l7 3v6c0 5.2-3.3 9.8-7 11-3.7-1.2-7-5.8-7-11V5z" fill="currentColor" />
-                        </svg>
-                        <div className="oc-role-emblem-text">
-                          <span className="oc-role-emblem-short">{roleDisplay.short}</span>
-                          <span className="oc-role-emblem-label">{roleDisplay.label}</span>
-                        </div>
-                      </div>
+                {/* Team + Role */}
+                <div className="oc-team-role">
+                  {data.teamLogoUrl && teamLogoVisible ? (
+                    <img
+                      src={data.teamLogoUrl}
+                      alt={`Logo de ${data.team || 'team'}`}
+                      className="oc-team-logo"
+                      onError={() => setTeamLogoVisible(false)}
+                    />
+                  ) : null}
+                  <div className="oc-team-text">
+                    <p className="oc-team">{data.team ? `TEAM ${data.team}` : 'SIN TEAM'}</p>
+                    <div className="oc-role-line">
+                      <svg viewBox="0 0 24 24" className="oc-role-icon" aria-hidden="true">
+                        <path d="M12 2l7 3v6c0 5.2-3.3 9.8-7 11-3.7-1.2-7-5.8-7-11V5z" fill="currentColor" />
+                      </svg>
+                      <span className="oc-role-short">{roleDisplay.short}</span>
+                      <span className="oc-role-label">{roleDisplay.label}</span>
                     </div>
                   </div>
+                </div>
 
-                  <div className="oc-qr-id-wrap">
-                    <div className="oc-corner-qr-front" aria-label="QR frontal">
-                      <img src={data.qrImageUrl} alt="QR frontal de operador" className="oc-corner-qr-image" />
-                    </div>
-                    <div className="oc-credential-id-minimal">
-                      ID: {data.credentialId}
-                    </div>
+                {/* QR Section — large, bottom-left, easy to scan */}
+                <div className="oc-qr-row">
+                  <div className="oc-qr-frame">
+                    <img
+                      src={data.qrImageUrl}
+                      alt="QR de operador"
+                      className="oc-qr-img-front"
+                    />
+                  </div>
+                  <div className="oc-qr-text">
+                    <img src="/logo.svg" alt="" aria-hidden="true" className="oc-qr-logo" />
+                    <p className="oc-qr-label">QR de Validacion</p>
+                    <p className="oc-qr-id">CO {data.credentialId}</p>
+                    <p className="oc-qr-hint">Escanea con un dispositivo para verificar la identidad del operador</p>
                   </div>
                 </div>
               </div>
             </section>
 
+            {/* ═══════ BACK FACE ═══════ */}
             <section className="oc-face oc-face-back" aria-hidden={!isFlipped}>
               <img src="/logo.svg" alt="" aria-hidden="true" className="oc-brand-mark oc-brand-mark-back" />
 
-
-
-              <header className="oc-header">
-                <div>
-                  <p className="oc-eyebrow">CHILE AIRSOFT</p>
-                  <h2 className="oc-title">Lado Tactico</h2>
-                </div>
-                <span className="oc-chip">BACK</span>
-              </header>
-
-              <div className="oc-operator-score-wrap">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                  <img src="/logo.png?v=2" alt="ID Airsoft Logo" style={{ width: '42px', height: '42px', objectFit: 'contain', borderRadius: '50%' }} />
+              <div className="oc-back">
+                {/* Header */}
+                <header className="oc-header">
                   <div>
-                    <h2 style={{ margin: 0, fontFamily: "'Barlow Condensed', sans-serif", fontSize: '24px', letterSpacing: '0.04em', lineHeight: 1 }}>ID AIRSOFT</h2>
-                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--oc-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Plataforma Oficial</p>
+                    <p className="oc-eyebrow">CHILE AIRSOFT</p>
+                    <h2 className="oc-title">Lado Tactico</h2>
+                  </div>
+                  <span className="oc-chip">BACK</span>
+                </header>
+
+                {/* Platform Badge */}
+                <div className="oc-platform">
+                  <img src="/logo.png?v=2" alt="ID Airsoft Logo" className="oc-platform-logo" />
+                  <div>
+                    <h2 className="oc-platform-name">ID AIRSOFT</h2>
+                    <p className="oc-platform-sub">Plataforma Oficial</p>
                   </div>
                 </div>
-                <div className="oc-operator-score-breakdown">
-                  <span className="oc-score-pill oc-score-pill-green">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
-                      <path d="M4 3h8l2 3h6v8l-2 3h-6l-2-3H4z" fill="currentColor" />
-                    </svg>
-                    Verdes {data.totalFairPlayGreen ?? 0}
-                  </span>
-                  <span className="oc-score-pill oc-score-pill-yellow">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
-                      <path d="M4 3h8l2 3h6v8l-2 3h-6l-2-3H4z" fill="currentColor" />
-                    </svg>
-                    Amarillas {data.totalFairPlayYellow ?? 0}
-                  </span>
-                  <span className="oc-score-pill oc-score-pill-red">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
-                      <path d="M4 3h8l2 3h6v8l-2 3h-6l-2-3H4z" fill="currentColor" />
-                    </svg>
-                    Rojas {data.totalFairPlayRed ?? 0}
-                  </span>
-                  <span className="oc-score-pill oc-score-pill-fairplay">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
-                      <path d="M12 2l2.7 5.5L21 8.4l-4.5 4.4 1 6.2L12 16.2 6.5 19l1-6.2L3 8.4l6.3-.9z" fill="currentColor" />
-                    </svg>
-                    Fair Play {data.fairPlayScore ?? 0}
-                  </span>
-                  <span className="oc-score-pill oc-score-pill-events">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
-                      <path d="M7 2h2v2h6V2h2v2h3v18H4V4h3zm11 6H6v12h12z" fill="currentColor" />
-                    </svg>
-                    Eventos {data.confirmedEvents ?? 0}
-                  </span>
-                  <span className="oc-score-pill oc-score-pill-achievements">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
-                      <path d="M12 3l3 6 6 .9-4.3 4.2 1 6-5.7-3-5.7 3 1-6L3 9.9 9 9z" fill="currentColor" />
-                    </svg>
-                    Logros {data.achievementsUnlocked ?? 0}
-                  </span>
-                </div>
-              </div>
 
-              <div className="oc-back-grid">
-                <div className="oc-critical-card oc-ice-card">
-                  <p className="oc-critical-label">CONTACTOS DE EMERGENCIA (ICE)</p>
+                {/* Score Metrics */}
+                <div className="oc-score-section">
+                  <p className="oc-score-title">Metricas de Operador</p>
+                  <div className="oc-score-grid">
+                    <span className="oc-score-pill oc-score-pill-green">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
+                        <path d="M4 3h8l2 3h6v8l-2 3h-6l-2-3H4z" fill="currentColor" />
+                      </svg>
+                      Verdes {data.totalFairPlayGreen ?? 0}
+                    </span>
+                    <span className="oc-score-pill oc-score-pill-yellow">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
+                        <path d="M4 3h8l2 3h6v8l-2 3h-6l-2-3H4z" fill="currentColor" />
+                      </svg>
+                      Amarillas {data.totalFairPlayYellow ?? 0}
+                    </span>
+                    <span className="oc-score-pill oc-score-pill-red">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
+                        <path d="M4 3h8l2 3h6v8l-2 3h-6l-2-3H4z" fill="currentColor" />
+                      </svg>
+                      Rojas {data.totalFairPlayRed ?? 0}
+                    </span>
+                    <span className="oc-score-pill oc-score-pill-fairplay">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
+                        <path d="M12 2l2.7 5.5L21 8.4l-4.5 4.4 1 6.2L12 16.2 6.5 19l1-6.2L3 8.4l6.3-.9z" fill="currentColor" />
+                      </svg>
+                      Fair Play {data.fairPlayScore ?? 0}
+                    </span>
+                    <span className="oc-score-pill oc-score-pill-events">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
+                        <path d="M7 2h2v2h6V2h2v2h3v18H4V4h3zm11 6H6v12h12z" fill="currentColor" />
+                      </svg>
+                      Eventos {data.confirmedEvents ?? 0}
+                    </span>
+                    <span className="oc-score-pill oc-score-pill-achievements">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className="oc-score-icon">
+                        <path d="M12 3l3 6 6 .9-4.3 4.2 1 6-5.7-3-5.7 3 1-6L3 9.9 9 9z" fill="currentColor" />
+                      </svg>
+                      Logros {data.achievementsUnlocked ?? 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ICE Contacts */}
+                <div className="oc-ice-section">
+                  <p className="oc-ice-title-label">CONTACTOS DE EMERGENCIA (ICE)</p>
 
                   <div className="oc-ice-item">
-                    <p className="oc-ice-title">Contacto 1</p>
+                    <p className="oc-ice-contact-label">Contacto 1</p>
                     <p className="oc-ice-name">{data.iceName || 'Sin dato'}</p>
                     <p className="oc-ice-phone">Tel: {data.icePhone || 'Sin dato'}</p>
                   </div>
 
                   {(data.iceName2 || data.icePhone2) ? (
                     <div className="oc-ice-item">
-                      <p className="oc-ice-title">Contacto 2</p>
+                      <p className="oc-ice-contact-label">Contacto 2</p>
                       <p className="oc-ice-name">{data.iceName2 || 'Sin dato'}</p>
                       <p className="oc-ice-phone">Tel: {data.icePhone2 || 'Sin dato'}</p>
                     </div>
@@ -271,16 +296,17 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
                     </span>
                   </div>
                 </div>
-              </div>
 
-              <div className="oc-medals">
-                <p className="oc-critical-label">MEDALLAS</p>
-                <div className="oc-medals-list">
-                  {(data.medals && data.medals.length > 0 ? data.medals : ['Sin medallas']).map((medal) => (
-                    <span key={medal} className="oc-medal-pill">
-                      {medal}
-                    </span>
-                  ))}
+                {/* Medals */}
+                <div className="oc-medals">
+                  <p className="oc-medals-label">MEDALLAS</p>
+                  <div className="oc-medals-list">
+                    {(data.medals && data.medals.length > 0 ? data.medals : ['Sin medallas']).map((medal) => (
+                      <span key={medal} className="oc-medal-pill">
+                        {medal}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </section>
@@ -298,19 +324,6 @@ export function OperatorCredentialCard({ data, defaultSkin = 'multicam' }: Opera
         <p className="oc-flip-hint">Tip: desliza horizontalmente la tarjeta para voltearla.</p>
       </div>
 
-      <div className="oc-skins" role="group" aria-label="Selector de skin">
-        {skinOrder.map((item) => (
-          <button
-            key={item}
-            type="button"
-            className={`oc-skin-btn ${skin === item ? 'is-active' : ''}`}
-            onClick={() => setSkin(item)}
-            aria-pressed={skin === item}
-          >
-            {skinLabel[item]}
-          </button>
-        ))}
-      </div>
     </section>
   );
 }
