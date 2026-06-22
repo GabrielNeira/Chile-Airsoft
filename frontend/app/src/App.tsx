@@ -10,7 +10,7 @@ import CheckoutResultView from './components/CheckoutResultView';
 import OperatorPlayerDashboard from './components/OperatorPlayerDashboard';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'recovery';
 type AdminOpsWorkspace = 'eventos' | 'proceso' | 'scanner' | 'god';
 type GodWorkspace = 'users' | 'events' | 'fields';
 
@@ -291,6 +291,13 @@ function App() {
   const [editError, setEditError] = useState<string | null>(null);
   const [editHint, setEditHint] = useState<string | null>(null);
   const [profileReloadTick, setProfileReloadTick] = useState(0);
+
+  const [showResetPasswordForm, setShowResetPasswordForm] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   const [registrationForm, setRegistrationForm] = useState<RegistrationForm>({
     nickname: '',
@@ -728,7 +735,7 @@ function App() {
       setAuthLoading(false);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSessionUserId(nextSession?.user.id ?? null);
       setSessionUserEmail(nextSession?.user.email ?? null);
       const metadata = (nextSession?.user.user_metadata ?? {}) as Record<string, unknown>;
@@ -739,6 +746,10 @@ function App() {
       setEditMode(false);
       setEditError(null);
       setEditHint(null);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowResetPasswordForm(true);
+      }
     });
 
     return () => {
@@ -1170,6 +1181,14 @@ function App() {
           throw error;
         }
         setAuthMessage('Sesion iniciada correctamente.');
+      } else if (authMode === 'recovery') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: appRedirectUrl
+        });
+        if (error) {
+          throw error;
+        }
+        setAuthMessage('Te hemos enviado un correo con instrucciones para restablecer tu contraseña.');
       } else {
         const { data, error } = await supabase.auth.signInWithOtp({
           email,
@@ -1190,6 +1209,36 @@ function App() {
       }
     } catch (error) {
       setAuthError(toFriendlyError(error));
+    }
+  }
+
+  async function handleResetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+    
+    if (newPassword !== confirmNewPassword) {
+      setResetError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setResetLoading(true);
+    setResetError(null);
+    setResetMessage(null);
+
+    try {
+      const { error: resetErr } = await supabase.auth.updateUser({ password: newPassword });
+      if (resetErr) throw resetErr;
+      setResetMessage('Contraseña actualizada correctamente.');
+      setTimeout(() => {
+        setShowResetPasswordForm(false);
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setResetMessage(null);
+      }, 2000);
+    } catch (err) {
+      setResetError(toFriendlyError(err));
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -1497,16 +1546,25 @@ function App() {
   }
 
   if (!sessionUserId) {
+    const getAuthSubtitle = () => {
+      if (authMode === 'recovery') {
+        return 'Ingresa tu correo electrónico registrado y te enviaremos un enlace seguro para restablecer tu contraseña.';
+      }
+      return 'Primera vez aqui: registrate con RUT + correo, confirma email y completa el perfil en tu primer ingreso.';
+    };
+
     return (
       <main className="page-shell auth-shell">
         <div className="page-bg" />
         <section className="page-grid page-grid-auth">
           <div className="auth-card auth-card-login">
             <header className="auth-header">
-              <p className="auth-kicker">Portal seguro de acceso</p>
+              <p className="auth-kicker">
+                {authMode === 'recovery' ? 'Recuperar contraseña' : 'Portal seguro de acceso'}
+              </p>
               <h1 className="page-title">ID Airsoft Chile</h1>
               <p className="page-subtitle auth-subtitle">
-                Primera vez aqui: registrate con RUT + correo, confirma email y completa el perfil en tu primer ingreso.
+                {getAuthSubtitle()}
               </p>
             </header>
 
@@ -1522,8 +1580,9 @@ function App() {
                   placeholder="nombre@correo.cl"
                 />
               </label>
-              {authMode === 'login' ? (
-                <label>
+              
+              {authMode === 'login' && (
+                <label style={{ position: 'relative' }}>
                   Contrasena
                   <input
                     type="password"
@@ -1534,55 +1593,91 @@ function App() {
                     required
                     placeholder="Minimo 6 caracteres"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('recovery')}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#8ee8be',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      position: 'absolute',
+                      right: '0',
+                      top: '0',
+                      fontWeight: 600,
+                      padding: 0
+                    }}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
                 </label>
-              ) : (
+              )}
+
+              {authMode === 'signup' && (
                 <p className="page-subtitle auth-message">
                   Te enviaremos un enlace de confirmacion a tu correo. Al primer ingreso te pediremos RUT, nombre legal y consentimientos.
                 </p>
               )}
 
               <button type="submit" className="primary-btn">
-                {authMode === 'login' ? 'Iniciar sesion' : 'Registrar y confirmar correo'}
+                {authMode === 'login'
+                  ? 'Iniciar sesion'
+                  : authMode === 'recovery'
+                  ? 'Enviar enlace de recuperación'
+                  : 'Registrar y confirmar correo'}
               </button>
             </form>
 
-            <p className="auth-divider">o continuar con</p>
-
-            <div className="oauth-row">
-              <button
-                type="button"
-                className="oauth-btn oauth-google oauth-google-brand"
-                onClick={() => handleOAuthLogin('google')}
-              >
-                <svg className="google-icon" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
-                  <path
-                    fill="#EA4335"
-                    d="M9 3.48c1.69 0 2.84.73 3.49 1.34l2.54-2.54C13.44.8 11.4 0 9 0 5.48 0 2.44 2.02.96 4.96l2.95 2.29C4.62 5.16 6.62 3.48 9 3.48z"
-                  />
-                  <path
-                    fill="#4285F4"
-                    d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.12-.84 2.07-1.8 2.7v2.24h2.91c1.7-1.56 2.69-3.86 2.69-6.58z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M3.91 10.75A5.41 5.41 0 0 1 3.6 9c0-.61.11-1.2.31-1.75V5.01H.96A8.98 8.98 0 0 0 0 9c0 1.45.35 2.83.96 3.99l2.95-2.24z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.24c-.8.54-1.83.86-3.05.86-2.35 0-4.35-1.59-5.06-3.73l-2.95 2.24C2.44 15.98 5.48 18 9 18z"
-                  />
-                </svg>
-                <span>Sign in with Google</span>
-              </button>
-            </div>
+            {authMode !== 'recovery' && (
+              <>
+                <p className="auth-divider">o continuar con</p>
+                <div className="oauth-row">
+                  <button
+                    type="button"
+                    className="oauth-btn oauth-google oauth-google-brand"
+                    onClick={() => handleOAuthLogin('google')}
+                  >
+                    <svg className="google-icon" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+                      <path
+                        fill="#EA4335"
+                        d="M9 3.48c1.69 0 2.84.73 3.49 1.34l2.54-2.54C13.44.8 11.4 0 9 0 5.48 0 2.44 2.02.96 4.96l2.95 2.29C4.62 5.16 6.62 3.48 9 3.48z"
+                      />
+                      <path
+                        fill="#4285F4"
+                        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.12-.84 2.07-1.8 2.7v2.24h2.91c1.7-1.56 2.69-3.86 2.69-6.58z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M3.91 10.75A5.41 5.41 0 0 1 3.6 9c0-.61.11-1.2.31-1.75V5.01H.96A8.98 8.98 0 0 0 0 9c0 1.45.35 2.83.96 3.99l2.95-2.24z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.24c-.8.54-1.83.86-3.05.86-2.35 0-4.35-1.59-5.06-3.73l-2.95 2.24C2.44 15.98 5.48 18 9 18z"
+                      />
+                    </svg>
+                    <span>Sign in with Google</span>
+                  </button>
+                </div>
+              </>
+            )}
 
             <button
               type="button"
               className="ghost-btn auth-toggle-btn"
-              onClick={() => setAuthMode((prev) => (prev === 'login' ? 'signup' : 'login'))}
+              onClick={() => {
+                setAuthError(null);
+                setAuthMessage(null);
+                setAuthMode((prev) => {
+                  if (prev === 'recovery') return 'login';
+                  return prev === 'login' ? 'signup' : 'login';
+                });
+              }}
             >
               {authMode === 'login'
                 ? 'Registrar'
+                : authMode === 'recovery'
+                ? 'Volver al inicio de sesión'
                 : 'Iniciar sesion'}
             </button>
 
@@ -2206,6 +2301,83 @@ function App() {
                 Recordar mas tarde
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showResetPasswordForm ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+          <div className="modal-card">
+            <h2 id="reset-modal-title" className="modal-title" style={{ margin: 0, fontSize: '1.25rem', color: '#eef8f4' }}>Restablecer Contraseña</h2>
+            <p className="page-subtitle" style={{ margin: '0.5rem 0 1rem', fontSize: '0.875rem' }}>
+              Ingresa tu nueva contraseña para tu cuenta de ID Airsoft Chile.
+            </p>
+            
+            <form onSubmit={handleResetPassword} style={{ display: 'grid', gap: '1rem' }}>
+              <label style={{ display: 'grid', gap: '0.4rem', textAlign: 'left', color: '#a0bdb0', fontSize: '0.875rem', fontWeight: 700 }}>
+                Nueva Contraseña
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  style={{
+                    width: '100%',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(190, 232, 209, 0.3)',
+                    background: 'rgba(6, 12, 13, 0.9)',
+                    color: '#eef8f4',
+                    padding: '10px',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </label>
+
+              <label style={{ display: 'grid', gap: '0.4rem', textAlign: 'left', color: '#a0bdb0', fontSize: '0.875rem', fontWeight: 700 }}>
+                Confirmar Nueva Contraseña
+                <input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  minLength={6}
+                  required
+                  placeholder="Repite la contraseña"
+                  style={{
+                    width: '100%',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(190, 232, 209, 0.3)',
+                    background: 'rgba(6, 12, 13, 0.9)',
+                    color: '#eef8f4',
+                    padding: '10px',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </label>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setShowResetPasswordForm(false)}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#eef8f4' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={resetLoading}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px', cursor: 'pointer', border: '1px solid rgba(150, 233, 191, 0.4)', background: 'linear-gradient(150deg, rgba(46, 117, 80, 0.95), rgba(15, 48, 38, 0.98))', color: '#ffffff', fontWeight: 700 }}
+                >
+                  {resetLoading ? 'Guardando...' : 'Restablecer'}
+                </button>
+              </div>
+            </form>
+
+            {resetError && <p className="error-text" style={{ marginTop: '0.5rem', color: '#ff758f', fontSize: '0.875rem' }}>{sanitizeUiMessage(resetError)}</p>}
+            {resetMessage && <p className="success-text" style={{ marginTop: '0.5rem', color: '#8ee8be', fontSize: '0.875rem' }}>{resetMessage}</p>}
           </div>
         </div>
       ) : null}
