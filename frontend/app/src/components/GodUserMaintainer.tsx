@@ -31,6 +31,7 @@ interface UserMaintainerRow {
   team: string;
   roles: string[];
   createdAt: string;
+  avatarUrl?: string | null;
 }
 
 const ACHIEVEMENT_TEMPLATES = [
@@ -81,6 +82,34 @@ function mapError(error: unknown): string {
     return 'Tu cuenta no puede leer tablas directas. Usa el reporte GOD consolidado (RPC).';
   }
   return message;
+}
+
+function normalizeAvatarUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null;
+  const value = rawUrl.trim();
+  if (!value) return null;
+  
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    if ((host.includes('google.') || host.includes('bing.')) && parsed.searchParams.get('imgurl')) {
+      const embedded = parsed.searchParams.get('imgurl');
+      if (embedded) return normalizeAvatarUrl(embedded);
+    }
+  } catch {
+    // Ignore URL parse error for non-URLs
+  }
+
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:')) {
+    return value;
+  }
+  if (value.startsWith('//')) {
+    return `https:${value}`;
+  }
+  if (value.startsWith('www.')) {
+    return `https://${value}`;
+  }
+  return value;
 }
 
 export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
@@ -213,6 +242,19 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
 
       if (reportError) throw reportError;
 
+      // Query avatar urls directly from operator_profiles
+      const { data: avatarRows } = await supabase
+        .from('operator_profiles')
+        .select('user_id, avatar_url');
+      const avatarMap = new Map<string, string>();
+      if (avatarRows) {
+        avatarRows.forEach((row: any) => {
+          if (row.avatar_url) {
+            avatarMap.set(row.user_id, row.avatar_url);
+          }
+        });
+      }
+
       const merged: UserMaintainerRow[] = ((data as GodUserReportRow[] | null) ?? []).map((row) => ({
         userId: row.user_id,
         email: row.email ?? 'sin-email',
@@ -222,7 +264,8 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
         bloodGroup: row.blood_group ?? 'N/D',
         team: row.team ?? 'Sin equipo',
         roles: row.roles ?? [],
-        createdAt: row.profile_created_at ?? new Date(0).toISOString()
+        createdAt: row.profile_created_at ?? new Date(0).toISOString(),
+        avatarUrl: avatarMap.get(row.user_id) || null
       }));
 
       setUsers(merged);
@@ -499,7 +542,7 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
                         onClick={() => setSelectedUserId(item.userId)}
                       >
                         <img
-                          src={`https://api.dicebear.com/9.x/adventurer/png?seed=${getAvatarSeed(item)}`}
+                          src={normalizeAvatarUrl(item.avatarUrl) || `https://api.dicebear.com/9.x/adventurer/png?seed=${getAvatarSeed(item)}`}
                           alt="Avatar"
                           className="god-card-avatar"
                         />
@@ -533,7 +576,7 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
             <div className="god-detail-wrapper">
               <header className="god-detail-header">
                 <img
-                  src={`https://api.dicebear.com/9.x/adventurer/png?seed=${getAvatarSeed(selectedUser)}`}
+                  src={normalizeAvatarUrl(selectedUser.avatarUrl) || `https://api.dicebear.com/9.x/adventurer/png?seed=${getAvatarSeed(selectedUser)}`}
                   alt="Selected avatar"
                   className="god-detail-avatar"
                 />
