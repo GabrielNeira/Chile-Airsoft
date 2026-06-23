@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { getOperatorIdMetricsByUserId, OperatorIdMetricsRow } from '../lib/operatorMetricsApi';
+import OperatorCredentialCard from './OperatorCredentialCard';
 import './god-user-maintainer.css';
 
 type AppRole = 'player' | 'field_admin' | 'organizer' | 'super_admin';
@@ -122,7 +123,7 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
 
   // Selected User State
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'profile' | 'metrics' | 'achievements' | 'roles'>('profile');
+  const [selectedTab, setSelectedTab] = useState<'profile' | 'metrics' | 'achievements' | 'roles' | 'credential'>('profile');
 
   // Detailed CRUD Form States
   const [editNickname, setEditNickname] = useState('');
@@ -130,6 +131,10 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
   const [editTeam, setEditTeam] = useState('');
   const [editOperatorRole, setEditOperatorRole] = useState('assault');
   const [editBloodGroup, setEditBloodGroup] = useState('O+');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [editTeamLogoUrl, setEditTeamLogoUrl] = useState('');
+  const [selectedSkin, setSelectedSkin] = useState('multicam');
+  const [selectedAnimation, setSelectedAnimation] = useState('classic');
   const [editIceName, setEditIceName] = useState('');
   const [editIcePhone, setEditIcePhone] = useState('');
   const [editIceName2, setEditIceName2] = useState('');
@@ -206,6 +211,8 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
     setEditTeam('');
     setEditOperatorRole('assault');
     setEditBloodGroup('O+');
+    setEditAvatarUrl('');
+    setEditTeamLogoUrl('');
     setEditIceName('');
     setEditIcePhone('');
     setEditIceName2('');
@@ -301,11 +308,37 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
         setEditTeam(profile.team || 'Sin equipo');
         setEditOperatorRole(profile.operator_role || 'assault');
         setEditBloodGroup(profile.blood_group || 'O+');
+        setEditAvatarUrl(profile.avatar_url || '');
+        setEditTeamLogoUrl(profile.team_logo_url || '');
         setEditIceName(profile.emergency_contact_name || '');
         setEditIcePhone(profile.emergency_contact_phone || '');
         setEditIceName2(profile.emergency_contact_name_2 || '');
         setEditIcePhone2(profile.emergency_contact_phone_2 || '');
         setEditAllergies(profile.allergies || '');
+      }
+
+      // 1b. Fetch Cosmetics Loadout
+      try {
+        const { data: loadoutData } = await supabase
+          .from('operator_id_loadout')
+          .select('equipped_skin_code, equipped_animation_code')
+          .eq('operator_user_id', userId)
+          .maybeSingle();
+
+        if (loadoutData?.equipped_skin_code) {
+          setSelectedSkin(loadoutData.equipped_skin_code);
+        } else {
+          setSelectedSkin('multicam');
+        }
+        if (loadoutData?.equipped_animation_code) {
+          setSelectedAnimation(loadoutData.equipped_animation_code);
+        } else {
+          setSelectedAnimation('classic');
+        }
+      } catch (loadoutErr) {
+        console.warn('Could not load cosmetics loadout:', loadoutErr);
+        setSelectedSkin('multicam');
+        setSelectedAnimation('classic');
       }
 
       // 2. Fetch Metrics View
@@ -369,6 +402,8 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
           team: editTeam.trim() || null,
           operator_role: editOperatorRole,
           blood_group: editBloodGroup,
+          avatar_url: editAvatarUrl.trim() || null,
+          team_logo_url: editTeamLogoUrl.trim() || null,
           emergency_contact_name: editIceName.trim() || null,
           emergency_contact_phone: editIcePhone.trim() || null,
           emergency_contact_name_2: editIceName2.trim() || null,
@@ -615,6 +650,13 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
                 >
                   Roles & Canchas
                 </button>
+                <button
+                  type="button"
+                  className={`god-tab-btn ${selectedTab === 'credential' ? 'is-active' : ''}`}
+                  onClick={() => setSelectedTab('credential')}
+                >
+                  🪪 Credencial
+                </button>
               </nav>
 
               <div className="god-tab-content">
@@ -695,6 +737,58 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
                             </select>
                           </label>
                         </div>
+
+                        <hr className="god-divider" />
+                        <h4 className="god-section-subtitle">Recursos Multimedia del Perfil</h4>
+
+                        <div className="god-form-grid">
+                          <label className="god-form-field">
+                            <span>URL del Avatar</span>
+                            <input
+                              value={editAvatarUrl}
+                              onChange={(e) => setEditAvatarUrl(e.target.value)}
+                              placeholder="https://... (URL directa de imagen)"
+                              type="url"
+                            />
+                          </label>
+
+                          <label className="god-form-field">
+                            <span>URL del Logo de Equipo</span>
+                            <input
+                              value={editTeamLogoUrl}
+                              onChange={(e) => setEditTeamLogoUrl(e.target.value)}
+                              placeholder="https://... (URL directa de imagen)"
+                              type="url"
+                            />
+                          </label>
+                        </div>
+
+                        {(editAvatarUrl.trim() || editTeamLogoUrl.trim()) && (
+                          <div className="god-media-preview-row">
+                            {editAvatarUrl.trim() && (
+                              <div className="god-media-preview-item">
+                                <span className="god-media-preview-label">Vista previa Avatar</span>
+                                <img
+                                  src={normalizeAvatarUrl(editAvatarUrl) || ''}
+                                  alt="Preview avatar"
+                                  className="god-media-preview-img"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              </div>
+                            )}
+                            {editTeamLogoUrl.trim() && (
+                              <div className="god-media-preview-item">
+                                <span className="god-media-preview-label">Vista previa Logo Equipo</span>
+                                <img
+                                  src={normalizeAvatarUrl(editTeamLogoUrl) || ''}
+                                  alt="Preview team logo"
+                                  className="god-media-preview-img"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         <hr className="god-divider" />
                         <h4 className="god-section-subtitle">Contacto de Emergencia & ICE</h4>
@@ -963,6 +1057,75 @@ export default function GodUserMaintainer({ enabled }: GodUserMaintainerProps) {
                             )}
                           </>
                         )}
+                      </div>
+                    )}
+
+                    {/* TAB 5: Credential Viewer */}
+                    {selectedTab === 'credential' && (
+                      <div className="god-credential-view">
+                        <h4 className="god-section-subtitle">Credencial Interactiva del Operador</h4>
+                        <p className="god-section-desc">
+                          Vista previa de la credencial 3D tal como la ve el operador, con su skin y animación equipada.
+                          Haz clic en la credencial para voltearla.
+                        </p>
+
+                        <div className="god-credential-card-container">
+                          <OperatorCredentialCard
+                            data={{
+                              nickname: editNickname || selectedUser.nickname,
+                              realName: editRealName || selectedUser.realName,
+                              bloodGroup: editBloodGroup || selectedUser.bloodGroup,
+                              role: editOperatorRole || selectedUser.operatorRole,
+                              team: editTeam || selectedUser.team,
+                              operatorScore: selectedMetrics?.operator_score ?? 0,
+                              avatarUrl:
+                                normalizeAvatarUrl(editAvatarUrl)
+                                || normalizeAvatarUrl(selectedUser.avatarUrl)
+                                || `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(selectedUser.nickname)}`,
+                              teamLogoUrl: normalizeAvatarUrl(editTeamLogoUrl) || undefined,
+                              qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: selectedUser.userId, nickname: editNickname || selectedUser.nickname }))}`,
+                              iceName: editIceName || 'Sin dato',
+                              icePhone: editIcePhone || 'Sin dato',
+                              iceName2: editIceName2 || undefined,
+                              icePhone2: editIcePhone2 || undefined,
+                              allergies: editAllergies || undefined,
+                              credentialId: selectedMetrics?.credential_code ?? 'SIN-CODIGO',
+                              medals: selectedAchievements.length > 0
+                                ? selectedAchievements.map((code) => {
+                                    const tmpl = ACHIEVEMENT_TEMPLATES.find((a) => a.code === code);
+                                    return tmpl ? `${tmpl.icon} ${tmpl.title}` : code;
+                                  })
+                                : ['Sin medallas'],
+                              fairPlayScore: selectedMetrics?.fair_play_score ?? 0,
+                              totalFairPlayGreen: selectedMetrics?.total_fair_play_green ?? 0,
+                              totalFairPlayYellow: selectedMetrics?.total_fair_play_yellow ?? 0,
+                              totalFairPlayRed: selectedMetrics?.total_fair_play_red ?? 0,
+                              confirmedEvents: selectedMetrics?.total_confirmed_events ?? 0,
+                              achievementsUnlocked: selectedMetrics?.total_achievements_unlocked ?? 0
+                            }}
+                            defaultSkin={selectedSkin}
+                            equippedAnimation={selectedAnimation}
+                          />
+                        </div>
+
+                        <div className="god-credential-meta">
+                          <div className="god-credential-meta-item">
+                            <span className="god-credential-meta-label">Skin Equipada</span>
+                            <span className="god-credential-meta-value">{selectedSkin}</span>
+                          </div>
+                          <div className="god-credential-meta-item">
+                            <span className="god-credential-meta-label">Animación Equipada</span>
+                            <span className="god-credential-meta-value">{selectedAnimation}</span>
+                          </div>
+                          <div className="god-credential-meta-item">
+                            <span className="god-credential-meta-label">Operator Score</span>
+                            <span className="god-credential-meta-value">{selectedMetrics?.operator_score ?? 0}</span>
+                          </div>
+                          <div className="god-credential-meta-item">
+                            <span className="god-credential-meta-label">Fair Play</span>
+                            <span className="god-credential-meta-value">{selectedMetrics?.fair_play_score ?? 0} / 100</span>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </>
