@@ -1,5 +1,6 @@
 import { DragEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+import OrganizerDashboard from './OrganizerDashboard';
 import './field-operations-console.css';
 
 type TeamSlot = 'alpha' | 'bravo' | 'reserve';
@@ -7,7 +8,6 @@ type CardType = 'green' | 'yellow' | 'red';
 type MatchStatus = 'planned' | 'running' | 'finished';
 type BoardView = 'evento' | 'equipos' | 'partidas' | 'tarjetas' | 'superadmin';
 type PlayerKind = 'operator' | 'guest';
-type EventPaneTab = 'open' | 'history';
 
 interface FieldOperationsConsoleProps {
   operatorNickname: string;
@@ -306,13 +306,12 @@ export default function FieldOperationsConsole({
   allowedViews,
   initialView
 }: FieldOperationsConsoleProps) {
+  const [consoleMode, setConsoleMode] = useState<'dashboard' | 'event_detail'>('dashboard');
   const [activeView, setActiveView] = useState<BoardView>(initialView ?? 'evento');
   const [eventoSubView, setEventoSubView] = useState<'generar' | 'administrar' | 'jugadores'>('generar');
   const [fields, setFields] = useState<FieldRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
-  const [eventPaneTab, setEventPaneTab] = useState<EventPaneTab>('open');
   const [activeEventId, setActiveEventId] = useState('');
-  const [historicalEventId, setHistoricalEventId] = useState('');
   const [eventFieldId, setEventFieldId] = useState('');
 
   const [eventTitle, setEventTitle] = useState('Jornada Airsoft');
@@ -384,21 +383,6 @@ export default function FieldOperationsConsole({
     return baseViews.filter((view) => allowedViews.includes(view));
   }, [allowedViews, isHomuraSuperAdmin]);
 
-  const openEvents = useMemo(
-    () => events.filter((eventItem) => !eventItem.ends_at),
-    [events]
-  );
-
-  const historicalEvents = useMemo(
-    () => events.filter((eventItem) => Boolean(eventItem.ends_at)),
-    [events]
-  );
-
-  const historicalEvent = useMemo(
-    () => historicalEvents.find((eventItem) => eventItem.id === historicalEventId) ?? null,
-    [historicalEvents, historicalEventId]
-  );
-
   const runningMatch = useMemo(
     () => matches.find((match) => match.status === 'running') ?? null,
     [matches]
@@ -446,28 +430,6 @@ export default function FieldOperationsConsole({
     setEventEditTime(toInputTimeLabel(activeEvent.scheduled_at));
     setEventEditMaxPlayers(activeEvent.max_players ? String(activeEvent.max_players) : '');
   }, [activeEvent]);
-
-  useEffect(() => {
-    if (openEvents.length === 0) {
-      setActiveEventId('');
-      return;
-    }
-
-    if (!openEvents.some((eventItem) => eventItem.id === activeEventId)) {
-      setActiveEventId(openEvents[0].id);
-    }
-  }, [openEvents, activeEventId]);
-
-  useEffect(() => {
-    if (historicalEvents.length === 0) {
-      setHistoricalEventId('');
-      return;
-    }
-
-    if (!historicalEvents.some((eventItem) => eventItem.id === historicalEventId)) {
-      setHistoricalEventId(historicalEvents[0].id);
-    }
-  }, [historicalEvents, historicalEventId]);
 
   const teamBuckets = useMemo(() => {
     const alpha = players.filter((player) => player.teamSlot === 'alpha');
@@ -683,8 +645,6 @@ export default function FieldOperationsConsole({
 
       const nextFields = scopedFields;
       const nextEvents = (eventsRes.data as EventRow[] | null) ?? [];
-      const nextOpenEvents = nextEvents.filter((eventItem) => !eventItem.ends_at);
-      const nextHistoricalEvents = nextEvents.filter((eventItem) => Boolean(eventItem.ends_at));
 
       setFields(nextFields);
       setEvents(nextEvents);
@@ -695,9 +655,7 @@ export default function FieldOperationsConsole({
           setAdminFieldId((prev) => prev || nextFields[0].id);
         }
       }
-
-      setActiveEventId(nextOpenEvents[0]?.id ?? '');
-      setHistoricalEventId(nextHistoricalEvents[0]?.id ?? '');
+      // We don't force auto-selection anymore to prevent jumping away from the dashboard or active event
     } catch (error) {
       setStatusMessage(mapError(error));
     } finally {
@@ -2228,20 +2186,52 @@ export default function FieldOperationsConsole({
         </p>
       ) : null}
 
-      {availableViews.length > 1 ? (
-        <nav className="ops-view-tabs" aria-label="Secciones operaciones">
-          {availableViews.map((view) => (
-            <button
-              key={view}
-              type="button"
-              className={`ops-view-tab ${activeView === view ? 'is-active' : ''}`}
-              onClick={() => setActiveView(view)}
+      {consoleMode === 'dashboard' ? (
+        <OrganizerDashboard
+          events={events}
+          fields={fields}
+          onEventSelect={(eventId) => {
+            setActiveEventId(eventId);
+            setConsoleMode('event_detail');
+            setActiveView('evento');
+            setEventoSubView('administrar');
+          }}
+          onCreateNewEvent={() => {
+            setActiveEventId('');
+            setConsoleMode('event_detail');
+            setActiveView('evento');
+            setEventoSubView('generar');
+          }}
+        />
+      ) : (
+        <>
+          <div className="ops-detail-header" style={{ marginBottom: '20px', padding: '0 16px' }}>
+            <button 
+              type="button" 
+              onClick={() => setConsoleMode('dashboard')}
+              style={{ background: 'rgba(142, 232, 190, 0.1)', border: '1px solid rgba(142, 232, 190, 0.3)', color: '#8ee8be', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
             >
-              {view.toUpperCase()}
+              &larr; Volver al Dashboard
             </button>
-          ))}
-        </nav>
-      ) : null}
+            <h3 style={{ marginTop: '16px', color: '#eef8f4', fontSize: '1.2rem' }}>
+              {activeEvent ? `Evento: ${activeEvent.title}` : 'Crear Nuevo Evento'}
+            </h3>
+          </div>
+
+          {availableViews.length > 1 ? (
+            <nav className="ops-view-tabs" aria-label="Secciones operaciones">
+              {availableViews.map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  className={`ops-view-tab ${activeView === view ? 'is-active' : ''}`}
+                  onClick={() => setActiveView(view)}
+                >
+                  {view.toUpperCase()}
+                </button>
+              ))}
+            </nav>
+          ) : null}
 
       {activeView === 'evento' && (
         <section className="ops-pane" aria-label="Panel evento">
@@ -2330,79 +2320,26 @@ export default function FieldOperationsConsole({
           {eventoSubView === 'administrar' && (
             <section className="ops-grid ops-grid-top">
             <article className="ops-card">
-              <h4>Administración de Eventos</h4>
-              <div className="ops-inline-actions" style={{ marginBottom: '8px' }}>
-                <button
-                  type="button"
-                  className={eventPaneTab === 'open' ? 'is-active' : ''}
-                  onClick={() => setEventPaneTab('open')}
-                >
-                  Eventos Abiertos
-                </button>
-                <button
-                  type="button"
-                  className={eventPaneTab === 'history' ? 'is-active' : ''}
-                  onClick={() => setEventPaneTab('history')}
-                >
-                  Eventos Historicos
-                </button>
-              </div>
-
-              {eventPaneTab === 'open' ? (
-                <div className="ops-event-list" role="listbox" aria-label="Lista de eventos abiertos">
-                  {openEvents.map((eventItem) => {
-                    const isActive = eventItem.id === activeEventId;
-                    return (
-                      <button
-                        key={eventItem.id}
-                        type="button"
-                        className={`ops-event-pill ${isActive ? 'is-active' : ''}`}
-                        onClick={() => setActiveEventId(eventItem.id)}
-                      >
-                        <span>{eventItem.title}</span>
-                        <span>{eventItem.event_date} | abierto</span>
-                      </button>
-                    );
-                  })}
-                  {openEvents.length === 0 ? <p className="ops-muted">No hay eventos abiertos para tus canchas asignadas.</p> : null}
-                </div>
-              ) : (
-                <div className="ops-event-list" role="listbox" aria-label="Lista de eventos historicos">
-                  {historicalEvents.map((eventItem) => {
-                    const isActive = eventItem.id === historicalEventId;
-                    return (
-                      <button
-                        key={eventItem.id}
-                        type="button"
-                        className={`ops-event-pill ${isActive ? 'is-active' : ''}`}
-                        onClick={() => setHistoricalEventId(eventItem.id)}
-                      >
-                        <span>{eventItem.title}</span>
-                        <span>{eventItem.event_date} | cerrado</span>
-                      </button>
-                    );
-                  })}
-                  {historicalEvents.length === 0 ? <p className="ops-muted">No hay eventos historicos en tus canchas asignadas.</p> : null}
-                </div>
-              )}
-
-              {eventPaneTab === 'open' && activeEvent ? (
+              <h4>Administración del Evento</h4>
+              
+              {activeEvent ? (
                 <div className="ops-grid" style={{ gap: '8px' }}>
                   <p className="ops-muted">Creado: {new Date(activeEvent.created_at).toLocaleString('es-CL')}</p>
+                  <p className="ops-muted">Estado actual: {activeEvent.ends_at ? 'Finalizado' : 'Abierto'}</p>
                   <p className="ops-muted">Cierre inscripciones: {activeEvent.registration_closed_at ? new Date(activeEvent.registration_closed_at).toLocaleString('es-CL') : 'abiertas'}</p>
                   <p className="ops-muted">Cierre evento: {activeEvent.ends_at ? new Date(activeEvent.ends_at).toLocaleString('es-CL') : 'pendiente'}</p>
 
                   <label>
                     Editar nombre
-                    <input value={eventEditTitle} onChange={(event) => setEventEditTitle(event.target.value)} />
+                    <input value={eventEditTitle} onChange={(event) => setEventEditTitle(event.target.value)} disabled={Boolean(activeEvent.ends_at)} />
                   </label>
                   <label>
                     Editar fecha
-                    <input type="date" value={eventEditDate} onChange={(event) => setEventEditDate(event.target.value)} />
+                    <input type="date" value={eventEditDate} onChange={(event) => setEventEditDate(event.target.value)} disabled={Boolean(activeEvent.ends_at)} />
                   </label>
                   <label>
                     Editar hora
-                    <input type="time" value={eventEditTime} onChange={(event) => setEventEditTime(event.target.value)} />
+                    <input type="time" value={eventEditTime} onChange={(event) => setEventEditTime(event.target.value)} disabled={Boolean(activeEvent.ends_at)} />
                   </label>
                   <label>
                     Editar cupo
@@ -2411,39 +2348,28 @@ export default function FieldOperationsConsole({
                       min={1}
                       value={eventEditMaxPlayers}
                       onChange={(event) => setEventEditMaxPlayers(event.target.value)}
+                      disabled={Boolean(activeEvent.ends_at)}
                     />
                   </label>
 
                   <div className="ops-inline-actions">
-                    <button type="button" disabled={busy} onClick={() => void handleUpdateActiveEvent()}>
+                    <button type="button" disabled={busy || Boolean(activeEvent.ends_at)} onClick={() => void handleUpdateActiveEvent()}>
                       Guardar evento
                     </button>
                     <button type="button" disabled={busy || registrationLocked} onClick={() => void handleCloseRegistrations()}>
                       Cerrar inscripciones
                     </button>
                     <button type="button" disabled={busy || Boolean(activeEvent.ends_at)} onClick={() => void handleCloseEvent()}>
-                      Cerrar evento
+                      Finalizar evento
                     </button>
                     <button type="button" disabled={busy} onClick={() => void handleDeleteActiveEvent()}>
                       Eliminar
                     </button>
                   </div>
                 </div>
-              ) : null}
-
-              {eventPaneTab === 'history' && historicalEvent ? (
-                <div className="ops-grid" style={{ gap: '8px' }}>
-                  <p className="ops-muted">Evento cerrado: {historicalEvent.title}</p>
-                  <p className="ops-muted">Fecha evento: {historicalEvent.event_date}</p>
-                  <p className="ops-muted">Creado: {new Date(historicalEvent.created_at).toLocaleString('es-CL')}</p>
-                  <p className="ops-muted">
-                    Cierre final: {historicalEvent.ends_at ? new Date(historicalEvent.ends_at).toLocaleString('es-CL') : 'N/D'}
-                  </p>
-                  <p className="ops-muted">
-                    Cierre inscripciones: {historicalEvent.registration_closed_at ? new Date(historicalEvent.registration_closed_at).toLocaleString('es-CL') : 'N/D'}
-                  </p>
-                </div>
-              ) : null}
+              ) : (
+                <p className="ops-muted">No hay un evento seleccionado. Vuelve al Dashboard para seleccionar uno.</p>
+              )}
             </article>
           </section>
           )}
@@ -2964,6 +2890,9 @@ export default function FieldOperationsConsole({
             </article>
           </section>
         </section>
+      )}
+
+        </> // Closes the fragment opened for the detail view
       )}
 
       <p className="ops-status" aria-live="polite">{statusMessage}</p>
