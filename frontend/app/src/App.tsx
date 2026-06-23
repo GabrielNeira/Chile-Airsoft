@@ -542,11 +542,12 @@ function App() {
       }
     }
 
-    if (parsed.nickname) {
+    const searchNickname = parsed.nickname?.trim() || token;
+    if (searchNickname) {
       const { data, error } = await supabase
         .from('operator_profiles')
         .select('user_id,nickname,operator_role,blood_group,team')
-        .eq('nickname', parsed.nickname)
+        .ilike('nickname', searchNickname)
         .limit(1);
 
       if (error) throw error;
