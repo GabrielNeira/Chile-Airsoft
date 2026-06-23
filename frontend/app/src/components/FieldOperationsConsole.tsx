@@ -120,6 +120,7 @@ interface RosterPlayer {
   isMinor: boolean;
   metrics: PlayerMetrics;
   cardsInEvent: number;
+  hasCheckedIn: boolean;
 }
 
 interface OperatorLookup {
@@ -436,10 +437,13 @@ export default function FieldOperationsConsole({
   }, [activeEvent]);
 
   const teamBuckets = useMemo(() => {
-    const alpha = players.filter((player) => player.teamSlot === 'alpha');
-    const bravo = players.filter((player) => player.teamSlot === 'bravo');
-    const reserve = players.filter((player) => player.teamSlot === 'reserve');
-    return { alpha, bravo, reserve };
+    const buckets: Record<TeamSlot, RosterPlayer[]> = { alpha: [], bravo: [], reserve: [] };
+    players.forEach((p) => {
+      if (p.isActiveInEvent && p.hasCheckedIn) {
+        buckets[p.teamSlot].push(p);
+      }
+    });
+    return buckets;
   }, [players]);
 
   const eventDurationSeconds = useMemo(() => {
@@ -866,7 +870,9 @@ export default function FieldOperationsConsole({
       const guestCards = (guestCardsRes.data as GuestCardRow[] | null) ?? [];
       const paidRows = (paidRegistrationsRes.data as PaidRegistrationRow[] | null) ?? [];
 
-      const operatorIds = checkins.map((row) => row.operator_user_id);
+      const checkinOperatorIds = checkins.map((row) => row.operator_user_id);
+      const paidOperatorIds = paidRows.map((row) => row.operator_user_id).filter(Boolean) as string[];
+      const operatorIds = Array.from(new Set([...checkinOperatorIds, ...paidOperatorIds]));
 
       if (operatorIds.length === 0 && guestPlayers.length === 0) {
         setPlayers([]);
@@ -946,7 +952,8 @@ export default function FieldOperationsConsole({
             isActiveInEvent: assignment?.is_active ?? true,
             isMinor: false,
             metrics: metricsMap.get(profile.user_id) ?? defaultMetrics(),
-            cardsInEvent: cardCountMap.get(playerKey) ?? 0
+            cardsInEvent: cardCountMap.get(playerKey) ?? 0,
+            hasCheckedIn: checkinOperatorIds.includes(profile.user_id)
           };
         }),
         ...guestPlayers.map((guest) => {
@@ -966,9 +973,10 @@ export default function FieldOperationsConsole({
             dayRole: assignment?.day_role?.trim() ?? '',
             assignmentNote: assignment?.assignment_note?.trim() ?? guest.note?.trim() ?? '',
             isActiveInEvent: assignment?.is_active ?? true,
-            isMinor: guest.is_minor,
+            isMinor: guest.is_minor ?? false,
             metrics: defaultMetrics(),
-            cardsInEvent: cardCountMap.get(playerKey) ?? 0
+            cardsInEvent: cardCountMap.get(playerKey) ?? 0,
+            hasCheckedIn: true
           };
         })
       ];
@@ -1417,7 +1425,7 @@ export default function FieldOperationsConsole({
 
       if (checkinError) throw checkinError;
 
-      if (registration.registration_status === 'paid') {
+      if (registration.registration_status === 'paid' || registration.registration_status === 'manual_unpaid') {
         const { error: updateError } = await supabase
           .from('event_paid_registrations')
           .update({
@@ -1433,7 +1441,7 @@ export default function FieldOperationsConsole({
     }
 
     const guest = await resolveGuestFromPaidRegistration(registration);
-    if (registration.registration_status === 'paid') {
+    if (registration.registration_status === 'paid' || registration.registration_status === 'manual_unpaid') {
       const { error: updateError } = await supabase
         .from('event_paid_registrations')
         .update({
@@ -1461,70 +1469,6 @@ export default function FieldOperationsConsole({
     try {
       await ensurePaidRegistrationPresent(registration);
       setStatusMessage('Inscripcion pagada pasada a presente.');
-      await loadEventData(activeEventId);
-    } catch (error) {
-      setStatusMessage(mapError(error));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleAssignPaidTeam(registration: PaidRegistrationRow, teamSlot: TeamSlot) {
-    if (!activeEventId || !supabase) {
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const resolved = await ensurePaidRegistrationPresent(registration);
-      const assignedAt = new Date().toISOString();
-
-      if (resolved.kind === 'operator' && resolved.operatorUserId) {
-        const { error: teamError } = await supabase
-          .from('event_team_assignments')
-          .upsert(
-            {
-              event_id: activeEventId,
-              operator_user_id: resolved.operatorUserId,
-              team_slot: teamSlot,
-              assigned_by: sessionUserId
-            },
-            { onConflict: 'event_id,operator_user_id' }
-          );
-
-        if (teamError) throw teamError;
-      }
-
-      if (resolved.kind === 'guest' && resolved.guestPlayerId) {
-        const { error: teamError } = await supabase
-          .from('event_guest_team_assignments')
-          .upsert(
-            {
-              event_id: activeEventId,
-              guest_player_id: resolved.guestPlayerId,
-              team_slot: teamSlot,
-              assigned_by: sessionUserId,
-              assignment_note: 'Asignado desde inscripcion pagada.'
-            },
-            { onConflict: 'event_id,guest_player_id' }
-          );
-
-        if (teamError) throw teamError;
-      }
-
-      const { error: updateError } = await supabase
-        .from('event_paid_registrations')
-        .update({
-          registration_status: 'assigned',
-          team_slot: teamSlot,
-          assigned_at: assignedAt,
-          checked_in_at: registration.checked_in_at ?? assignedAt
-        })
-        .eq('id', registration.id);
-
-      if (updateError) throw updateError;
-
-      setStatusMessage(`Inscripcion pagada asignada a ${TEAM_LABEL[teamSlot]}.`);
       await loadEventData(activeEventId);
     } catch (error) {
       setStatusMessage(mapError(error));
@@ -2397,142 +2341,138 @@ export default function FieldOperationsConsole({
           )}
 
           {eventoSubView === 'jugadores' && (
-            <>
             <section className="ops-grid ops-grid-bottom">
-            <article className="ops-card">
-              <h4>Registro de jugador</h4>
-              <p className="ops-muted">Si no existe perfil, puedes activarlo como invitado o menor sin historial.</p>
-              {registrationLocked ? <p className="ops-muted">Inscripciones cerradas: este bloque queda solo en lectura.</p> : null}
-              <label>
-                Nombre
-                <input
-                  value={playerNameInput}
-                  onChange={(event) => setPlayerNameInput(event.target.value)}
-                  placeholder="Ej: Ghost, Valkiria"
-                />
-              </label>
-              <label>
-                RUT
-                <input
-                  value={rutInput}
-                  onChange={(event) => setRutInput(event.target.value)}
-                  placeholder="12.345.678-5"
-                />
-              </label>
-              <label className="ops-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={allowGuestRegistration}
-                  onChange={(event) => setAllowGuestRegistration(event.target.checked)}
-                  disabled={registrationLocked}
-                />
-                <span>Permitir registro como invitado si no existe perfil</span>
-              </label>
-              <label className="ops-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={guestIsMinor}
-                  onChange={(event) => setGuestIsMinor(event.target.checked)}
-                  disabled={!allowGuestRegistration || registrationLocked}
-                />
-                <span>Marcar como menor de edad</span>
-              </label>
-              <div className="ops-inline-actions">
-                <button type="button" onClick={handleRegisterPlayer} disabled={!activeEventId || lookupBusy || registrationLocked}>
-                  {lookupBusy ? 'Registrando...' : 'Registrar Check-In Físico'}
-                </button>
-                <button type="button" onClick={handleManualUnpaidRegistration} disabled={!activeEventId || lookupBusy || registrationLocked}>
-                  Registrar Pendiente de Pago
-                </button>
-              </div>
-            </article>
-          </section>
+              <article className="ops-card">
+                <h4>Registro Rápido</h4>
+                <p className="ops-muted">Busca por nombre o RUT para inscribir manualmente.</p>
+                {registrationLocked ? <p className="ops-muted" style={{color:'var(--status-danger)'}}>Inscripciones cerradas.</p> : null}
+                <label>
+                  Nombre
+                  <input
+                    value={playerNameInput}
+                    onChange={(event) => setPlayerNameInput(event.target.value)}
+                    placeholder="Ej: Ghost, Valkiria"
+                  />
+                </label>
+                <label>
+                  RUT
+                  <input
+                    value={rutInput}
+                    onChange={(event) => setRutInput(event.target.value)}
+                    placeholder="12.345.678-5"
+                  />
+                </label>
+                <label className="ops-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={allowGuestRegistration}
+                    onChange={(event) => setAllowGuestRegistration(event.target.checked)}
+                    disabled={registrationLocked}
+                  />
+                  <span>Permitir registro como invitado si no existe perfil</span>
+                </label>
+                <label className="ops-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={guestIsMinor}
+                    onChange={(event) => setGuestIsMinor(event.target.checked)}
+                    disabled={!allowGuestRegistration || registrationLocked}
+                  />
+                  <span>Marcar como menor de edad</span>
+                </label>
+                <div className="ops-inline-actions">
+                  <button type="button" onClick={handleRegisterPlayer} disabled={!activeEventId || lookupBusy || registrationLocked}>
+                    {lookupBusy ? '...' : 'Registrar Pago y Check-in'}
+                  </button>
+                  <button type="button" onClick={handleManualUnpaidRegistration} disabled={!activeEventId || lookupBusy || registrationLocked}>
+                    Registrar Pendiente
+                  </button>
+                </div>
+              </article>
 
-          <section className="ops-grid ops-grid-bottom">
-            <article className="ops-card">
-              <h4>Listado de Jugadores</h4>
-              
-              <h5 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>Jugadores Pagados</h5>
-              <p className="ops-muted">Flujo operativo: pagado - presente - equipo.</p>
-              <ul className="ops-list">
-                {paidRegistrations.filter(r => r.registration_status !== 'manual_unpaid').length === 0 ? <li>No hay inscripciones de pago para este evento.</li> : null}
-                {paidRegistrations.filter(r => r.registration_status !== 'manual_unpaid').map((registration) => {
-                  const displayName = registration.operator_user_id
-                    ? players.find((player) => player.operatorUserId === registration.operator_user_id)?.nickname || `Operador ${registration.operator_user_id.slice(0, 8)}`
-                    : registration.guest_nickname || registration.guest_rut_normalized || 'Invitado pagado';
+              <article className="ops-card">
+                <h4 style={{ color: 'var(--status-danger)' }}>1. Pendientes de Pago</h4>
+                <p className="ops-muted">Inscritos manualmente, falta pago y check-in.</p>
+                <ul className="ops-list">
+                  {paidRegistrations.filter(r => r.registration_status === 'manual_unpaid').length === 0 ? <li>No hay pendientes.</li> : null}
+                  {paidRegistrations.filter(r => r.registration_status === 'manual_unpaid').map((registration) => {
+                    const displayName = registration.operator_user_id
+                      ? players.find((player) => player.operatorUserId === registration.operator_user_id)?.nickname || `Operador ${registration.operator_user_id.slice(0, 8)}`
+                      : registration.guest_nickname || registration.guest_rut_normalized || 'Invitado pendiente';
 
-                  return (
-                    <li key={registration.id} className="ops-paid-row">
+                    return (
+                      <li key={registration.id} className="ops-paid-row">
+                        <span>
+                          <strong>{displayName}</strong>
+                          <small>Estado: Pendiente</small>
+                        </span>
+                        <div className="ops-inline-actions">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void handleMarkPaidPresent(registration)}
+                          >
+                            Recibir Pago (Check-in)
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+
+              <article className="ops-card">
+                <h4 style={{ color: 'var(--status-warning)' }}>2. Pagados (Falta Check-in)</h4>
+                <p className="ops-muted">Pagaron por web, aún no llegan a la cancha.</p>
+                <ul className="ops-list">
+                  {paidRegistrations.filter(r => r.registration_status === 'paid').length === 0 ? <li>No hay pagados en espera.</li> : null}
+                  {paidRegistrations.filter(r => r.registration_status === 'paid').map((registration) => {
+                    const displayName = registration.operator_user_id
+                      ? players.find((player) => player.operatorUserId === registration.operator_user_id)?.nickname || `Operador ${registration.operator_user_id.slice(0, 8)}`
+                      : registration.guest_nickname || registration.guest_rut_normalized || 'Invitado pagado';
+
+                    return (
+                      <li key={registration.id} className="ops-paid-row">
+                        <span>
+                          <strong>{displayName}</strong>
+                          <small>Estado: Pagado Web</small>
+                        </span>
+                        <div className="ops-inline-actions">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void handleMarkPaidPresent(registration)}
+                          >
+                            Marcar Presente
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+
+              <article className="ops-card">
+                <h4 style={{ color: 'var(--status-success)' }}>3. Presentes (En Cancha)</h4>
+                <p className="ops-muted">Hicieron check-in y están listos para jugar.</p>
+                <ul className="ops-list">
+                  {players.filter(p => p.hasCheckedIn).length === 0 ? <li>Nadie ha hecho check-in.</li> : null}
+                  {players.filter(p => p.hasCheckedIn).map((player) => (
+                    <li key={player.userId} className="ops-paid-row">
                       <span>
-                        <strong>{displayName}</strong>
-                        <small>Estado: {registration.registration_status.toUpperCase()}</small>
+                        <strong>{player.nickname}</strong>
+                        <small>Equipo: {TEAM_LABEL[player.teamSlot]}</small>
                       </span>
                       <div className="ops-inline-actions">
-                        <button
-                          type="button"
-                          disabled={busy || registration.registration_status === 'assigned'}
-                          onClick={() => void handleMarkPaidPresent(registration)}
-                        >
-                          Marcar presente
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || registration.registration_status === 'assigned'}
-                          onClick={() => void handleAssignPaidTeam(registration, 'alpha')}
-                        >
-                          A Alpha
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || registration.registration_status === 'assigned'}
-                          onClick={() => void handleAssignPaidTeam(registration, 'bravo')}
-                        >
-                          A Bravo
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || registration.registration_status === 'assigned'}
-                          onClick={() => void handleAssignPaidTeam(registration, 'reserve')}
-                        >
-                          A Reserva
-                        </button>
+                        <button type="button" disabled={busy || player.teamSlot === 'alpha'} onClick={() => void movePlayerToTeam(player.userId, 'alpha')}>Alpha</button>
+                        <button type="button" disabled={busy || player.teamSlot === 'bravo'} onClick={() => void movePlayerToTeam(player.userId, 'bravo')}>Bravo</button>
+                        <button type="button" disabled={busy || player.teamSlot === 'reserve'} onClick={() => void movePlayerToTeam(player.userId, 'reserve')}>A Banca</button>
                       </div>
                     </li>
-                  );
-                })}
-              </ul>
-
-              <h5 style={{ marginTop: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>Jugadores Pendientes de Pago</h5>
-              <p className="ops-muted">Registrados manualmente en la plataforma pero sin pago confirmado.</p>
-              <ul className="ops-list">
-                {paidRegistrations.filter(r => r.registration_status === 'manual_unpaid').length === 0 ? <li>No hay inscripciones pendientes.</li> : null}
-                {paidRegistrations.filter(r => r.registration_status === 'manual_unpaid').map((registration) => {
-                  const displayName = registration.operator_user_id
-                    ? players.find((player) => player.operatorUserId === registration.operator_user_id)?.nickname || `Operador ${registration.operator_user_id.slice(0, 8)}`
-                    : registration.guest_nickname || registration.guest_rut_normalized || 'Invitado pendiente';
-
-                  return (
-                    <li key={registration.id} className="ops-paid-row">
-                      <span>
-                        <strong>{displayName}</strong>
-                        <small>Estado: PENDIENTE</small>
-                      </span>
-                      <div className="ops-inline-actions">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void handleMarkPaidPresent(registration)}
-                        >
-                          Pago Recibido (Check-in)
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </article>
-          </section>
-          </>
+                  ))}
+                </ul>
+              </article>
+            </section>
           )}
 
         </section>
