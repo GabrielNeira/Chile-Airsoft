@@ -2150,7 +2150,7 @@ export default function FieldOperationsConsole({
             setActiveEventId(eventId);
             setConsoleMode('event_detail');
             setActiveView('evento');
-            setEventoSubView('administrar');
+            setEventoSubView('jugadores');
           }}
           onCreateNewEvent={() => {
             setActiveEventId('');
@@ -2196,29 +2196,33 @@ export default function FieldOperationsConsole({
             <p>Selecciona una opción para administrar los eventos de tus canchas.</p>
           </div>
 
-          <nav className="ops-subview-tabs" aria-label="Secciones de evento">
-            <button
-              type="button"
-              className={`ops-subview-tab ${eventoSubView === 'generar' ? 'is-active' : ''}`}
-              onClick={() => setEventoSubView('generar')}
-            >
-              Generar Evento
-            </button>
-            <button
-              type="button"
-              className={`ops-subview-tab ${eventoSubView === 'administrar' ? 'is-active' : ''}`}
-              onClick={() => setEventoSubView('administrar')}
-            >
-              Administrar Eventos
-            </button>
-            <button
-              type="button"
-              className={`ops-subview-tab ${eventoSubView === 'jugadores' ? 'is-active' : ''}`}
-              onClick={() => setEventoSubView('jugadores')}
-            >
-              Jugadores Inscritos
-            </button>
-          </nav>
+          {activeEventId ? (
+            <nav className="ops-subview-tabs" aria-label="Secciones de evento">
+              <button
+                type="button"
+                className={`ops-subview-tab ${eventoSubView === 'administrar' ? 'is-active' : ''}`}
+                onClick={() => setEventoSubView('administrar')}
+              >
+                Configuración
+              </button>
+              <button
+                type="button"
+                className={`ops-subview-tab ${eventoSubView === 'jugadores' ? 'is-active' : ''}`}
+                onClick={() => setEventoSubView('jugadores')}
+              >
+                Jugadores Inscritos
+              </button>
+            </nav>
+          ) : (
+            <nav className="ops-subview-tabs" aria-label="Secciones de evento">
+              <button
+                type="button"
+                className="ops-subview-tab is-active"
+              >
+                Nuevo Evento
+              </button>
+            </nav>
+          )}
 
           {eventoSubView === 'generar' && (
             <section className="ops-grid ops-grid-top">
