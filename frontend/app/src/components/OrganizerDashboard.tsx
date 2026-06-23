@@ -15,6 +15,7 @@ interface EventRow {
   ends_at: string | null;
   scheduled_at?: string | null;
   max_players?: number | null;
+  price?: number | null;
   registration_closed_at?: string | null;
   field_id: string;
   created_at: string;

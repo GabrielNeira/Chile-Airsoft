@@ -31,6 +31,7 @@ interface EventRow {
   ends_at: string | null;
   scheduled_at?: string | null;
   max_players?: number | null;
+  price?: number | null;
   registration_closed_at?: string | null;
   field_id: string;
   created_at: string;
@@ -318,12 +319,13 @@ export default function FieldOperationsConsole({
   const [eventDate, setEventDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [eventTime, setEventTime] = useState('09:00');
   const [eventMaxPlayers, setEventMaxPlayers] = useState('150');
-  const [eventPrice, setEventPrice] = useState('25000');
+  const [eventPrice, setEventPrice] = useState('');
 
   const [eventEditTitle, setEventEditTitle] = useState('');
   const [eventEditDate, setEventEditDate] = useState('');
   const [eventEditTime, setEventEditTime] = useState('');
   const [eventEditMaxPlayers, setEventEditMaxPlayers] = useState('');
+  const [eventEditPrice, setEventEditPrice] = useState('');
 
   const [rutInput, setRutInput] = useState('');
   const [playerNameInput, setPlayerNameInput] = useState('');
@@ -422,6 +424,7 @@ export default function FieldOperationsConsole({
       setEventEditDate('');
       setEventEditTime('');
       setEventEditMaxPlayers('');
+      setEventEditPrice('');
       return;
     }
 
@@ -429,6 +432,7 @@ export default function FieldOperationsConsole({
     setEventEditDate(activeEvent.event_date);
     setEventEditTime(toInputTimeLabel(activeEvent.scheduled_at));
     setEventEditMaxPlayers(activeEvent.max_players ? String(activeEvent.max_players) : '');
+    setEventEditPrice(activeEvent.price !== null && activeEvent.price !== undefined ? String(activeEvent.price) : '');
   }, [activeEvent]);
 
   const teamBuckets = useMemo(() => {
@@ -1001,6 +1005,10 @@ export default function FieldOperationsConsole({
       setStatusMessage('Debes indicar cancha y nombre del evento.');
       return;
     }
+    if (!eventPrice.trim()) {
+      setStatusMessage('Debes indicar el precio del evento para MercadoPago.');
+      return;
+    }
 
     setBusy(true);
     try {
@@ -1010,7 +1018,7 @@ export default function FieldOperationsConsole({
         ? Math.floor(parsedMaxPlayers)
         : null;
       const parsedPrice = Number(eventPrice);
-      const priceValue = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? Math.floor(parsedPrice) : 25000;
+      const priceValue = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? Math.floor(parsedPrice) : 0;
 
       let createRes = await supabase
         .from('events')
@@ -1067,6 +1075,8 @@ export default function FieldOperationsConsole({
       ? Math.floor(parsedMaxPlayers)
       : null;
     const scheduledAt = toIsoDateTime(eventEditDate || activeEvent.event_date, eventEditTime);
+    const parsedPrice = Number(eventEditPrice);
+    const priceValue = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? Math.floor(parsedPrice) : activeEvent.price;
 
     setBusy(true);
     try {
@@ -1076,7 +1086,8 @@ export default function FieldOperationsConsole({
           title: eventEditTitle.trim() || activeEvent.title,
           event_date: eventEditDate || activeEvent.event_date,
           scheduled_at: scheduledAt,
-          max_players: maxPlayersValue
+          max_players: maxPlayersValue,
+          price: priceValue
         })
         .eq('id', activeEventId);
 
@@ -1087,7 +1098,8 @@ export default function FieldOperationsConsole({
             .from('events')
             .update({
               title: eventEditTitle.trim() || activeEvent.title,
-              event_date: eventEditDate || activeEvent.event_date
+              event_date: eventEditDate || activeEvent.event_date,
+              price: priceValue
             })
             .eq('id', activeEventId);
         }
@@ -2348,6 +2360,16 @@ export default function FieldOperationsConsole({
                       min={1}
                       value={eventEditMaxPlayers}
                       onChange={(event) => setEventEditMaxPlayers(event.target.value)}
+                      disabled={Boolean(activeEvent.ends_at)}
+                    />
+                  </label>
+                  <label>
+                    Editar precio ($)
+                    <input
+                      type="number"
+                      min={0}
+                      value={eventEditPrice}
+                      onChange={(event) => setEventEditPrice(event.target.value)}
                       disabled={Boolean(activeEvent.ends_at)}
                     />
                   </label>
