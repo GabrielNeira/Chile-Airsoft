@@ -80,6 +80,13 @@ const ANIMATIONS_CATALOG: CatalogItem[] = [
   { code: 'glitch', name: 'Falla Digital', desc: 'Giro cortado a pasos imitando glitches de datos.', rarity: 'raro', cost: 600 }
 ];
 
+const SOUNDS_CATALOG: CatalogItem[] = [
+  { code: 'classic', name: 'Beep Clásico', desc: 'Tono estándar de aviso y validación (senoidal limpia).', rarity: 'común', cost: 0 },
+  { code: 'coin', name: 'Moneda Retro', desc: 'Sonido nostálgico de moneda (estilo Mario Coin).', rarity: 'raro', cost: 150 },
+  { code: 'level_up', name: 'Subida de Nivel', desc: 'Fanfarria corta ascendente de recompensa arcade.', rarity: 'raro', cost: 300 },
+  { code: 'laser', name: 'Láser Arcade', desc: 'Frecuencia descendente rápida de disparo espacial.', rarity: 'legendario', cost: 450 }
+];
+
 // Predefined system achievements
 interface Achievement {
   code: string;
@@ -158,7 +165,7 @@ export default function OperatorPlayerDashboard({
   onEquipSound
 }: OperatorPlayerDashboardProps) {
   const [activeTab, setActiveTab] = useState<'inicio' | 'idlab' | 'eventos' | 'logros'>('inicio');
-  const [idlabSubTab, setIdlabSubTab] = useState<'skins' | 'animations'>('skins');
+  const [idlabSubTab, setIdlabSubTab] = useState<'skins' | 'animations' | 'sounds'>('skins');
   const [metrics, setMetrics] = useState<OperatorIdMetricsRow | null>(null);
   
   const [progression, setProgression] = useState<ProgressionData>({
@@ -328,6 +335,69 @@ export default function OperatorPlayerDashboard({
       alert('Ocurrió un error al procesar el desbloqueo. Por favor, intenta de nuevo.');
     } finally {
       setBuyingCode(null);
+    }
+  }
+
+  function playFrontendSound(soundCode: string) {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const now = ctx.currentTime;
+
+      if (soundCode === 'coin') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(987.77, now);
+        osc.frequency.setValueAtTime(1318.51, now + 0.08);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      } else if (soundCode === 'level_up') {
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + index * 0.07);
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.1, now + index * 0.07 + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.07 + 0.22);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + index * 0.07);
+          osc.stop(now + index * 0.07 + 0.22);
+        });
+      } else if (soundCode === 'laser') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1200, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.22);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      } else {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      }
+    } catch (e) {
+      console.warn('AudioContext failed:', e);
     }
   }
 
@@ -729,6 +799,14 @@ export default function OperatorPlayerDashboard({
                       >
                         Giros ({ANIMATIONS_CATALOG.length})
                       </button>
+                      <button
+                        type="button"
+                        className={`dashboard-tab-btn ${idlabSubTab === 'sounds' ? 'is-active' : ''}`}
+                        onClick={() => setIdlabSubTab('sounds')}
+                        style={{ fontSize: '13px', padding: '6px 12px', borderRadius: '8px' }}
+                      >
+                        Sonidos 🔊 ({SOUNDS_CATALOG.length})
+                      </button>
                     </div>
                   </header>
                   
@@ -913,6 +991,84 @@ export default function OperatorPlayerDashboard({
                                   disabled={buyingCode !== null}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    void handleUnlockItem(item);
+                                  }}
+                                >
+                                  {isBuying ? 'Desbloqueando...' : `Desbloquear (${item.cost} 🪙)`}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* SUBTAB: SOUNDS */}
+                      {idlabSubTab === 'sounds' && SOUNDS_CATALOG.map((item) => {
+                        const isUnlocked = unlockedItems.includes(item.code) || item.cost === 0;
+                        const isEquipped = equippedSound === item.code;
+                        const isBuying = buyingCode === item.code;
+                        const isEquipping = equippingCode === item.code;
+
+                        return (
+                          <div
+                            key={item.code}
+                            className={`skin-option-card ${isEquipped ? 'is-active' : ''}`}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', marginBottom: '8px', background: 'rgba(0,0,0,0.15)' }}
+                          >
+                            {/* Sound Icon Preview button */}
+                            <button
+                              type="button"
+                              className="sound-preview-bubble-btn"
+                              onClick={() => playFrontendSound(item.code)}
+                              title="Probar sonido"
+                              style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,255,92,0.08)', border: '1px solid rgba(200,255,92,0.2)', cursor: 'pointer', borderRadius: '50%', transition: 'transform 0.15s ease, background 0.15s ease', outline: 'none' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.background = 'rgba(200,255,92,0.15)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.background = 'rgba(200,255,92,0.08)'; }}
+                            >
+                              <span style={{ fontSize: '18px' }}>🔊</span>
+                            </button>
+
+                            <div className="skin-option-info" style={{ flex: 1, marginLeft: '14px', marginRight: '14px' }}>
+                              <div className="skin-option-header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <h3 className="skin-option-name" style={{ fontSize: '15px', margin: 0 }}>{item.name}</h3>
+                                <span className={`achievement-rarity rarity-${item.rarity.replace('ú', 'u')}`} style={{ fontSize: '9px', marginTop: 0 }}>
+                                  {item.rarity}
+                                </span>
+                              </div>
+                              <p className="skin-option-desc" style={{ fontSize: '12px', margin: '4px 0 0', color: '#9caab3', minHeight: 'auto', lineHeight: '1.4' }}>{item.desc}</p>
+                            </div>
+
+                            <div className="skin-option-action" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <button
+                                type="button"
+                                className="ghost-btn"
+                                style={{ padding: '6px 12px', fontSize: '12px', background: 'transparent', color: '#c8ff5c', border: '1px solid rgba(200,255,92,0.25)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+                                onClick={() => playFrontendSound(item.code)}
+                              >
+                                Oír
+                              </button>
+                              
+                              {isEquipped ? (
+                                <span style={{ color: '#c8ff5c', fontSize: '13px', fontWeight: 700, padding: '6px 10px', background: 'rgba(200, 255, 92, 0.08)', borderRadius: '8px', border: '1px solid rgba(200, 255, 92, 0.2)' }}>Equipado</span>
+                              ) : isUnlocked ? (
+                                <button
+                                  type="button"
+                                  className="primary-btn"
+                                  style={{ padding: '6px 12px', fontSize: '13px', background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer' }}
+                                  disabled={equippingCode !== null}
+                                  onClick={() => {
+                                    void handleEquipItem('sound', item.code);
+                                  }}
+                                >
+                                  {isEquipping ? 'Equipando...' : 'Equipar'}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="primary-btn"
+                                  style={{ padding: '6px 12px', fontSize: '13px', background: '#c8ff5c', color: '#111a24', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                                  disabled={buyingCode !== null}
+                                  onClick={() => {
                                     void handleUnlockItem(item);
                                   }}
                                 >

@@ -395,6 +395,13 @@ function App() {
     if (!sessionUserId) return;
     setEquippedSound(sound);
     localStorage.setItem(`equipped_sound_${sessionUserId}`, sound);
+    setOperatorData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: sessionUserId, nickname: prev.nickname, sound }))}`
+      };
+    });
   }
 
   async function resolveFieldOperationsAccessForSession(userId: string): Promise<boolean> {
@@ -1039,7 +1046,7 @@ function App() {
             ?? `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(row?.nickname ?? profile.nickname)}`,
           teamLogoUrl: normalizeAvatarUrl(profile.team_logo_url) ?? undefined,
           qrImageUrl:
-            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: profile.user_id, nickname: row?.nickname ?? profile.nickname }))}`,
+            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: profile.user_id, nickname: row?.nickname ?? profile.nickname, sound: dbSound }))}`,
           iceName: profile.emergency_contact_name ?? 'Sin dato',
           icePhone: emergencyPhones.phone1 || 'Sin dato',
           iceName2: (profile as { emergency_contact_name_2?: string | null }).emergency_contact_name_2 ?? undefined,
@@ -1362,7 +1369,7 @@ function App() {
           avatarUrl: `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(row.nickname)}`,
           teamLogoUrl: undefined,
           qrImageUrl:
-            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: sessionUserId, nickname: row.nickname }))}`,
+            `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(JSON.stringify({ userId: sessionUserId, nickname: row.nickname, sound: equippedSound }))}`,
           iceName: registrationForm.emergencyContactName,
           icePhone: registrationForm.emergencyContactPhone,
           iceName2: undefined,

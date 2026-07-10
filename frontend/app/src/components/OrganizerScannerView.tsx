@@ -37,6 +37,81 @@ const TEAM_LABEL: Record<TeamSlot, string> = {
   reserve: 'Reserva'
 };
 
+function playRetroSound(toneName: string) {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    if (toneName === 'coin') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(987.77, now);
+      osc.frequency.setValueAtTime(1318.51, now + 0.08);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } else if (toneName === 'level_up') {
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + index * 0.07);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.1, now + index * 0.07 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.07 + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + index * 0.07);
+        osc.stop(now + index * 0.07 + 0.22);
+      });
+    } else if (toneName === 'laser') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.22);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } else if (toneName === 'error') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.setValueAtTime(150, now + 0.07);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } else {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    }
+  } catch (e) {
+    console.warn('AudioContext failed:', e);
+  }
+}
+
 export function OrganizerScannerView({
   eventId,
   onResolveQr,
@@ -192,6 +267,17 @@ export function OrganizerScannerView({
       setTarget(profile);
       setStatus(`AirsoftID valido: ${profile.nickname}`);
       setScanTone('ok');
+
+      let soundCode = 'classic';
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed === 'object' && parsed.sound) {
+          soundCode = parsed.sound;
+        }
+      } catch {}
+
+      playRetroSound(soundCode);
+
       if (navigator.vibrate) {
         navigator.vibrate(80);
       }
@@ -199,6 +285,7 @@ export function OrganizerScannerView({
       setTarget(null);
       setStatus(`AirsoftID no registrado: ${(error as Error).message}`);
       setScanTone('error');
+      playRetroSound('error');
       if (navigator.vibrate) {
         navigator.vibrate([120, 40, 120]);
       }
@@ -219,9 +306,20 @@ export function OrganizerScannerView({
       setTarget(profile);
       setStatus(`AirsoftID valido: ${profile.nickname}`);
       setScanTone('ok');
+
+      let soundCode = 'classic';
+      try {
+        const parsed = JSON.parse(rawQr.trim());
+        if (parsed && typeof parsed === 'object' && parsed.sound) {
+          soundCode = parsed.sound;
+        }
+      } catch {}
+
+      playRetroSound(soundCode);
     } catch (error) {
       setStatus(`AirsoftID no registrado: ${(error as Error).message}`);
       setScanTone('error');
+      playRetroSound('error');
     } finally {
       setLoading(false);
     }
