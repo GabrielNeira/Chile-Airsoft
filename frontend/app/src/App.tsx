@@ -7,6 +7,7 @@ import GodEventsMaintainer from './components/GodEventsMaintainer';
 import GodFieldMaintainer from './components/GodFieldMaintainer';
 import OperatorEventMarketplace from './components/OperatorEventMarketplace';
 import CheckoutResultView from './components/CheckoutResultView';
+import AuthConfirmView from './components/AuthConfirmView';
 import OperatorPlayerDashboard from './components/OperatorPlayerDashboard';
 import PremiumSubscriptionManager from './components/PremiumSubscriptionManager';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
@@ -266,6 +267,10 @@ function parseQrPayload(rawQr: string): ParsedQrPayload {
 function App() {
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/checkout/')) {
     return <CheckoutResultView />;
+  }
+
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/confirm')) {
+    return <AuthConfirmView />;
   }
 
   const [authLoading, setAuthLoading] = useState(true);
