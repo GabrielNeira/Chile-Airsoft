@@ -130,9 +130,9 @@ export function OperatorCredentialCard({
                 {/* Header with institutional logo */}
                 <header className="oc-header">
                   <div className="oc-header-brand">
-                    <img src="/logo.png?v=2" alt="ID Airsoft" className="oc-header-logo" />
+                    <img src="/logo.png?v=2" alt="Airsoft ID" className="oc-header-logo" />
                     <div>
-                      <p className="oc-eyebrow">CHILE AIRSOFT</p>
+                      <p className="oc-eyebrow">AIRSOFT ID</p>
                       <h2 className="oc-title">Credencial de Operador</h2>
                     </div>
                   </div>
@@ -213,17 +213,17 @@ export function OperatorCredentialCard({
                 {/* Header */}
                 <header className="oc-header">
                   <div>
-                    <p className="oc-eyebrow">CHILE AIRSOFT</p>
-                    <h2 className="oc-title">Lado Tactico</h2>
+                    <p className="oc-eyebrow">AIRSOFT ID</p>
+                    <h2 className="oc-title">Lado Táctico</h2>
                   </div>
                   <span className="oc-chip">BACK</span>
                 </header>
 
                 {/* Platform Badge */}
                 <div className="oc-platform">
-                  <img src="/logo.png?v=2" alt="ID Airsoft Logo" className="oc-platform-logo" />
+                  <img src="/logo.png?v=2" alt="Airsoft ID Logo" className="oc-platform-logo" />
                   <div>
-                    <h2 className="oc-platform-name">ID AIRSOFT</h2>
+                    <h2 className="oc-platform-name">AIRSOFT ID</h2>
                     <p className="oc-platform-sub">Plataforma Oficial</p>
                   </div>
                 </div>

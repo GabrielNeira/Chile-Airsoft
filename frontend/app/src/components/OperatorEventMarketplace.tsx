@@ -20,6 +20,9 @@ interface ActiveEventRow {
   is_full: boolean;
   my_registration_status: string | null;
   my_payment_order_id: string | null;
+  price?: number | null;
+  starts_at?: string | null;
+  description?: string | null;
 }
 
 interface EventCardViewModel {
@@ -35,6 +38,9 @@ interface EventCardViewModel {
   isFull: boolean;
   myRegistrationStatus: string | null;
   myPaymentOrderId: string | null;
+  price: number;
+  startsAt: string | null;
+  description: string;
 }
 
 function formatDateLabel(rawDate: string): string {
@@ -129,7 +135,10 @@ export default function OperatorEventMarketplace({ enabled }: OperatorEventMarke
         slotsAvailable: row.slots_available,
         isFull: Boolean(row.is_full),
         myRegistrationStatus: row.my_registration_status,
-        myPaymentOrderId: row.my_payment_order_id
+        myPaymentOrderId: row.my_payment_order_id,
+        price: typeof row.price === 'number' ? row.price : 25000,
+        startsAt: row.starts_at ?? null,
+        description: row.description || `Jornada deportiva en ${row.field_name}. Prepárate para simulación militar, juego limpio y misiones tácticas en un gran ambiente deportivo.`
       }));
 
       setEvents(rows);
@@ -206,41 +215,93 @@ export default function OperatorEventMarketplace({ enabled }: OperatorEventMarke
           const isBusy = busyEventId === eventCard.eventId;
           const slotsLabel = eventCard.maxPlayers === null
             ? 'Cupo abierto'
-            : `${Math.max(0, eventCard.slotsAvailable ?? 0)} disponibles de ${eventCard.maxPlayers}`;
+            : `${Math.max(0, eventCard.slotsAvailable ?? 0)} de ${eventCard.maxPlayers} disponibles`;
+
+          // Resolved status label and CSS class for badges
+          const statusMap: Record<string, { label: string; cls: string }> = {
+            pending: { label: 'Pago Pendiente', cls: 'status-pending' },
+            pending_payment: { label: 'Pago Pendiente', cls: 'status-pending' },
+            confirmed: { label: 'Inscrito', cls: 'status-confirmed' },
+            paid: { label: 'Pagado ✓', cls: 'status-paid' },
+            rejected: { label: 'Rechazado', cls: 'status-rejected' },
+            waitlist: { label: 'Lista de Espera', cls: 'status-waitlist' },
+          };
+          const rawStatus = eventCard.myRegistrationStatus ?? '';
+          const resolvedStatus = statusMap[rawStatus.toLowerCase()] ?? { label: rawStatus.toUpperCase(), cls: 'status-default' };
 
           return (
             <article key={eventCard.eventId} className="operator-event-card">
-              <p className="operator-event-field">{eventCard.fieldName}</p>
-              <h4>{eventCard.title}</h4>
-              <p className="operator-event-meta">Fecha: {formatDateLabel(eventCard.eventDate)}</p>
-              {eventCard.fieldAddress && (
+              <div className="operator-event-header">
+                <p className="operator-event-field">📍 {eventCard.fieldName}</p>
+                {alreadyRegistered && (
+                  <span className={`operator-event-status-badge ${resolvedStatus.cls}`}>
+                    {resolvedStatus.label}
+                  </span>
+                )}
+              </div>
+
+              <h4 className="operator-event-title">{eventCard.title}</h4>
+              <p className="operator-event-description" style={{ fontSize: '13px', color: '#bdcbc4', margin: '0 0 14px', lineHeight: '1.4' }}>{eventCard.description}</p>
+
+              <div className="operator-event-details">
                 <p className="operator-event-meta">
-                  📍 {eventCard.fieldAddress}
-                  {eventCard.googleMapsUrl && (
-                    <> - <a href={eventCard.googleMapsUrl} target="_blank" rel="noreferrer" style={{color: '#96e9bf'}}>Abrir Mapa</a></>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="event-detail-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Fecha: {formatDateLabel(eventCard.eventDate)}
+                  {eventCard.startsAt && ` — ${new Date(eventCard.startsAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs`}
+                </p>
+                <p className="operator-event-meta">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="event-detail-icon"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Cupos: {slotsLabel}
+                </p>
+                <p className="operator-event-meta">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="event-detail-icon"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  Valor: {eventCard.price ? `CLP ${eventCard.price.toLocaleString('es-CL')}` : 'Gratis / Liberado'}
+                </p>
+              </div>
+
+              {(eventCard.fieldAddress || eventCard.googleMapsUrl) && (
+                <div className="operator-event-location">
+                  {eventCard.fieldAddress && (
+                    <p className="operator-event-address">{eventCard.fieldAddress}</p>
                   )}
-                </p>
+                  {eventCard.googleMapsUrl && (
+                    <a
+                      href={eventCard.googleMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="operator-event-map-btn"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="map-btn-icon"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      Ver ubicación / Cómo llegar
+                    </a>
+                  )}
+                </div>
               )}
-              <p className="operator-event-meta">Cupos: {slotsLabel}</p>
-              <p className="operator-event-meta">Registrados: {eventCard.registeredCount}</p>
-              <p className="operator-event-meta">Valor: CLP 25.000</p>
 
-              {alreadyRegistered ? (
-                <p className="operator-event-tag is-registered">
-                  Ya registrado ({String(eventCard.myRegistrationStatus).toUpperCase()})
-                </p>
-              ) : null}
+              <div className="operator-event-footer">
+                {eventCard.isFull && !alreadyRegistered && (
+                  <p className="operator-event-full-badge">Sin cupos disponibles</p>
+                )}
 
-              <button
-                type="button"
-                disabled={isBusy || eventCard.isFull || alreadyRegistered}
-                onClick={() => void handleRegisterAndPay(eventCard)}
-              >
-                {isBusy ? 'Procesando pago...' : alreadyRegistered ? 'Registrado' : eventCard.isFull ? 'Sin cupos' : 'Registrarme y pagar'}
-              </button>
+                <button
+                  type="button"
+                  className={`operator-event-cta ${alreadyRegistered ? 'is-registered' : ''}`}
+                  disabled={isBusy || eventCard.isFull || alreadyRegistered}
+                  onClick={() => void handleRegisterAndPay(eventCard)}
+                >
+                  {isBusy
+                    ? 'Procesando...'
+                    : alreadyRegistered
+                    ? `Registrado — ${resolvedStatus.label}`
+                    : eventCard.isFull
+                    ? 'Sin cupos'
+                    : 'Registrarme y pagar'}
+                </button>
+              </div>
             </article>
           );
         })}
+
       </div>
 
       {error ? <p className="operator-events-error">{error}</p> : null}

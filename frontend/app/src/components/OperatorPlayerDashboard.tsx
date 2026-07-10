@@ -560,13 +560,138 @@ export default function OperatorPlayerDashboard({
                     </article>
                   </div>
 
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {/* ─── ONBOARDING BANNER (solo para nuevos usuarios) ─── */}
+                  {progression.level <= 1 && (metrics?.total_confirmed_events ?? 0) === 0 && (
+                    <div className="onboarding-banner">
+                      <div className="onboarding-banner-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="onboarding-icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        <h3 className="onboarding-title">¡Bienvenido a Airsoft ID! — Pasos iniciales</h3>
+                      </div>
+                      <ol className="onboarding-steps">
+                        <li className="onboarding-step is-done">
+                          <span className="step-number">1</span>
+                          <div>
+                            <strong>Crear cuenta y sesión</strong>
+                            <p>Tu cuenta ya está activa.</p>
+                          </div>
+                        </li>
+                        <li className={`onboarding-step ${operatorData ? 'is-done' : 'is-pending'}`}>
+                          <span className="step-number">2</span>
+                          <div>
+                            <strong>Completar tu Airsoft ID</strong>
+                            <p>Alias, grupo sanguíneo y contactos de emergencia.</p>
+                          </div>
+                        </li>
+                        <li className="onboarding-step is-pending">
+                          <span className="step-number">3</span>
+                          <div>
+                            <strong>Revisar datos de emergencia</strong>
+                            <p>Contacto ICE, alergias y medicamentos críticos.</p>
+                          </div>
+                        </li>
+                        <li className="onboarding-step is-pending">
+                          <span className="step-number">4</span>
+                          <div>
+                            <strong>Buscar eventos activos</strong>
+                            <p>Revisa la sección “Buscar Eventos” en el menú.</p>
+                          </div>
+                        </li>
+                        <li className="onboarding-step is-pending">
+                          <span className="step-number">5</span>
+                          <div>
+                            <strong>Personalizar tu credencial</strong>
+                            <p>Elige un camuflaje en el tab “ID Lab (Diseño)”.</p>
+                          </div>
+                        </li>
+                        <li className="onboarding-step is-pending">
+                          <span className="step-number">6</span>
+                          <div>
+                            <strong>Entender Creditsoft y Premium</strong>
+                            <p>Lee la guía más abajo para saber cómo ganar créditos.</p>
+                          </div>
+                        </li>
+                      </ol>
+                    </div>
+                  )}
+
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px' }}>
                     <h3 style={{ margin: '0 0 8px', fontSize: '16px', color: '#fff' }}>Instrucciones de Operador</h3>
                     <p style={{ margin: 0, color: '#9caab3', fontSize: '14px', lineHeight: 1.4 }}>
-                      Tu credencial almacena tu historial táctico. Al presentarte en canchas asociadas a <strong>Chile Airsoft</strong>,
+                      Tu credencial almacena tu historial táctico. Al presentarte en canchas asociadas a <strong>Airsoft ID</strong>,
                       presenta el código QR en la mesa de control. El organizador validará tu asistencia, crono de réplicas,
                       y actualizará tus métricas en tiempo real. ¡El juego limpio y el trabajo en equipo construyen tu reputación!
                     </p>
+                  </div>
+
+                  {/* ─── CREDITSOFT & PREMIUM GUIDE ─── */}
+                  <div className="economy-guide-card">
+                    <div className="economy-guide-header">
+                      <span className="economy-guide-icon">🧠</span>
+                      <h3 className="economy-guide-title">¿Cómo funcionan Creditsoft y Premium?</h3>
+                    </div>
+
+                    <div className="economy-guide-cols">
+                      <div className="economy-guide-col">
+                        <div className="economy-guide-col-header soft">
+                          <span>🪙</span>
+                          <strong>Creditsoft (CS)</strong>
+                        </div>
+                        <p className="economy-guide-desc">Los Creditsoft son la moneda de la plataforma. Se ganan jugando y participando activamente en la comunidad.</p>
+                        <ul className="economy-guide-list">
+                          <li><span className="earn-badge">+50 CS</span> Check-in en evento oficial</li>
+                          <li><span className="earn-badge">+20 CS</span> Perfil completo al 100%</li>
+                          <li><span className="earn-badge">+10 CS</span> Por cada Fair Play verde</li>
+                          <li><span className="earn-badge">+30 CS</span> Logro desbloqueado</li>
+                          <li><span className="earn-badge">+15 CS</span> Primer check-in del mes</li>
+                        </ul>
+                        <p className="economy-guide-use"><strong>Para qué sirven:</strong> Desbloquear skins de camuflaje y animaciones especiales para tu credencial en el ID Lab.</p>
+                      </div>
+
+                      <div className="economy-guide-col">
+                        <div className="economy-guide-col-header premium">
+                          <span>💎</span>
+                          <strong>Fichas Premium</strong>
+                        </div>
+                        <p className="economy-guide-desc">Las Fichas Premium son exclusivas para usuarios con cuenta Premium. Desbloquean contenido legendario y beneficios especiales.</p>
+                        <ul className="economy-guide-list">
+                          <li>✅ Skins legendarios exclusivos</li>
+                          <li>✅ Animaciones de giro premium</li>
+                          <li>✅ Badge Premium visible en credencial</li>
+                          <li>✅ Prioridad en eventos con cupo limitado</li>
+                          <li>✅ Historial extendido de partidas</li>
+                        </ul>
+                        <p className="economy-guide-use"><strong>Cómo obtenerlo:</strong> La cuenta Premium se habilita mediante suscripción mensual o como recompensa especial de torneos. Próximamente disponible.</p>
+                      </div>
+                    </div>
+
+                    <div className="economy-guide-free-vs-premium">
+                      <h4 className="fvp-title">Gratis vs Premium</h4>
+                      <div className="fvp-grid">
+                        <div className="fvp-col fvp-free">
+                          <span className="fvp-label">Cuenta Gratuita</span>
+                          <ul>
+                            <li>✅ Credencial Airsoft ID</li>
+                            <li>✅ QR de validación</li>
+                            <li>✅ Historial de eventos</li>
+                            <li>✅ 10 skins militares base</li>
+                            <li>✅ Creditsoft ganados</li>
+                            <li>❌ Skins legendarios</li>
+                            <li>❌ Badge Premium</li>
+                          </ul>
+                        </div>
+                        <div className="fvp-col fvp-premium">
+                          <span className="fvp-label premium-glow">Cuenta Premium 💎</span>
+                          <ul>
+                            <li>✅ Todo lo de la cuenta gratuita</li>
+                            <li>✅ Todos los skins desbloqueados</li>
+                            <li>✅ Fichas Premium mensuales</li>
+                            <li>✅ Badge dorado en credencial</li>
+                            <li>✅ Prioridad en inscripción a eventos</li>
+                            <li>✅ Acceso anticipado a funciones nuevas</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </section>
               )}

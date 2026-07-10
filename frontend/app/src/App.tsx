@@ -94,7 +94,7 @@ function BrandLogo() {
   return (
     <img
       src={brandSrc}
-      alt="Logo ID Airsoft Chile"
+      alt="Logo Airsoft ID"
       className="brand-logo"
       loading="eager"
       decoding="async"
@@ -1523,7 +1523,7 @@ function App() {
         <div className="page-bg" />
         <section className="page-grid page-grid-auth">
           <div className="auth-card">
-            <h1 className="page-title">ID Airsoft Chile</h1>
+            <h1 className="page-title">Airsoft ID</h1>
             <p className="page-subtitle">Falta configurar Supabase en frontend/app/.env para continuar.</p>
           </div>
         </section>
@@ -1538,7 +1538,7 @@ function App() {
         <section className="page-grid page-grid-auth">
           <div className="auth-card">
             <BrandLogo />
-            <h1 className="page-title">ID Airsoft Chile</h1>
+            <h1 className="page-title">Airsoft ID</h1>
             <p className="page-subtitle">Validando sesion...</p>
           </div>
         </section>
@@ -1563,7 +1563,7 @@ function App() {
               <p className="auth-kicker">
                 {authMode === 'recovery' ? 'Recuperar contraseña' : 'Portal seguro de acceso'}
               </p>
-              <h1 className="page-title">ID Airsoft Chile</h1>
+              <h1 className="page-title">Airsoft ID</h1>
               <p className="page-subtitle auth-subtitle">
                 {getAuthSubtitle()}
               </p>
@@ -1697,7 +1697,7 @@ function App() {
         <section className="page-grid page-grid-auth">
           <div className="auth-card">
             <BrandLogo />
-            <h1 className="page-title">ID Airsoft Chile</h1>
+            <h1 className="page-title">Airsoft ID</h1>
             <p className="page-subtitle">Cargando perfil de operador...</p>
           </div>
         </section>
@@ -1714,7 +1714,7 @@ function App() {
       <header className="app-header">
         <div className="app-header-brand">
           <BrandLogo />
-          <h1 className="app-header-title">ID Airsoft</h1>
+          <h1 className="app-header-title">Airsoft ID</h1>
         </div>
         <button className="hamburger-btn" onClick={() => setIsMenuOpen(true)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1806,7 +1806,7 @@ function App() {
         <div className="page-bg" />
         <section className="page-grid page-grid-id-focus">
           <div className={`id-focus-column ${activeExperienceSection !== 'id' ? 'is-wide' : ''}`}>
-            <h1 className="page-title" style={{ display: 'none' }}>ID Airsoft Chile</h1>
+            <h1 className="page-title" style={{ display: 'none' }}>Airsoft ID</h1>
 
             {needsCredentialSetup ? (
               <div className="auth-card" style={{ marginBottom: '1rem' }}>
@@ -2311,7 +2311,7 @@ function App() {
           <div className="modal-card">
             <h2 id="reset-modal-title" className="modal-title" style={{ margin: 0, fontSize: '1.25rem', color: '#eef8f4' }}>Restablecer Contraseña</h2>
             <p className="page-subtitle" style={{ margin: '0.5rem 0 1rem', fontSize: '0.875rem' }}>
-              Ingresa tu nueva contraseña para tu cuenta de ID Airsoft Chile.
+              Ingresa tu nueva contraseña para tu cuenta de Airsoft ID.
             </p>
             
             <form onSubmit={handleResetPassword} style={{ display: 'grid', gap: '1rem' }}>
