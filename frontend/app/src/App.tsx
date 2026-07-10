@@ -8,6 +8,7 @@ import GodFieldMaintainer from './components/GodFieldMaintainer';
 import OperatorEventMarketplace from './components/OperatorEventMarketplace';
 import CheckoutResultView from './components/CheckoutResultView';
 import OperatorPlayerDashboard from './components/OperatorPlayerDashboard';
+import PremiumSubscriptionManager from './components/PremiumSubscriptionManager';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 type AuthMode = 'login' | 'signup' | 'recovery';
@@ -72,6 +73,7 @@ interface CredentialOperatorViewModel {
   totalFairPlayRed: number;
   confirmedEvents: number;
   achievementsUnlocked: number;
+  isPremium?: boolean;
 }
 
 interface SupabaseLikeError {
@@ -336,7 +338,7 @@ function App() {
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
-  const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations' | 'marketplace' | 'dashboard'>('id');
+  const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations' | 'marketplace' | 'dashboard' | 'premium_admin'>('id');
   const [equippedSkin, setEquippedSkin] = useState<string>('multicam');
   const [equippedAnimation, setEquippedAnimation] = useState<string>('classic');
   const [equippedSound, setEquippedSound] = useState<string>('classic');
@@ -1052,7 +1054,8 @@ function App() {
           totalFairPlayYellow: row?.total_fair_play_yellow ?? 0,
           totalFairPlayRed: row?.total_fair_play_red ?? 0,
           confirmedEvents: row?.total_confirmed_events ?? 0,
-          achievementsUnlocked: row?.total_achievements_unlocked ?? 0
+          achievementsUnlocked: row?.total_achievements_unlocked ?? 0,
+          isPremium: Boolean(profile.is_premium)
         });
 
         setEditForm({
@@ -1708,6 +1711,7 @@ function App() {
   const needsCredentialSetup = needsIdentityOnboarding || needsRegistration;
   const showingIdentityStep = needsIdentityOnboarding;
   const isGodAdmin = canManageRoles || canManageFieldAdminsByEmail;
+  const canManagePremium = sessionUserId === '4acf55e2-8ad8-427f-8adc-be8c94d0718b' || isGodAdmin;
 
   return (
     <>
@@ -1755,6 +1759,12 @@ function App() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
               Buscar Eventos
             </button>
+            {canManagePremium && (
+              <button className={`menu-item ${activeExperienceSection === 'premium_admin' ? 'is-active' : ''}`} onClick={() => { setActiveExperienceSection('premium_admin'); setEditMode(false); setIsMenuOpen(false); }} style={{ color: '#f6c95e' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                Gestionar Premium 💎
+              </button>
+            )}
           </div>
 
           {canAccessFieldOperations && (
@@ -1975,6 +1985,8 @@ function App() {
             </>
           ) : activeExperienceSection === 'marketplace' ? (
             <OperatorEventMarketplace enabled={Boolean(sessionUserId)} />
+          ) : activeExperienceSection === 'premium_admin' && canManagePremium ? (
+            <PremiumSubscriptionManager />
           ) : activeExperienceSection === 'dashboard' ? (
             <OperatorPlayerDashboard
               userId={sessionUserId}

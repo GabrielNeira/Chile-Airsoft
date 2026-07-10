@@ -41,33 +41,34 @@ interface CatalogItem {
   desc: string;
   rarity: 'común' | 'raro' | 'legendario';
   cost: number;
+  premiumOnly?: boolean;
 }
 
-// 20 Skins in total (10 real military camos + 10 special/fantasy skins)
+// 20 Skins in total (5 free military camos + 15 premium skins)
 const SKINS_CATALOG: CatalogItem[] = [
   // Camuflajes reales
   { code: 'multicam', name: 'Multicam Classic', desc: 'Diseño militar clásico de camuflaje de transición.', rarity: 'común', cost: 0 },
   { code: 'woodland', name: 'Woodland M81', desc: 'Camuflaje forestal clásico estadounidense de cuatro colores.', rarity: 'común', cost: 0 },
   { code: 'marpat', name: 'MARPAT Digital', desc: 'Camuflaje pixelado digital de los Marines (USMC).', rarity: 'raro', cost: 0 },
   { code: 'flecktarn', name: 'Flecktarn Alemán', desc: 'Patrón de manchas característico del ejército alemán.', rarity: 'raro', cost: 0 },
-  { code: 'blackmulticam', name: 'Black Multicam', desc: 'Variante oscura táctica ideal para operaciones nocturnas.', rarity: 'raro', cost: 0 },
+  { code: 'blackmulticam', name: 'Black Multicam', desc: 'Variante oscura táctica ideal para operaciones nocturnas.', rarity: 'raro', cost: 0, premiumOnly: true },
   { code: 'tigerstripe', name: 'Tiger Stripe', desc: 'Patrón a rayas horizontales de la era de Vietnam.', rarity: 'común', cost: 0 },
-  { code: 'desertdigital', name: 'Desert Digital', desc: 'Camuflaje pixelado de desierto de alta visibilidad táctica.', rarity: 'común', cost: 0 },
-  { code: 'kryptek', name: 'Kryptek Typhon', desc: 'Escamas tácticas tridimensionales de sigilo urbano.', rarity: 'legendario', cost: 0 },
-  { code: 'cadpat', name: 'CADPAT Digital', desc: 'Diseño digital canadiense templado de gran contraste.', rarity: 'raro', cost: 0 },
-  { code: 'acu', name: 'UCP Digital (ACU)', desc: 'Camuflaje pixelado gris/verde de combate universal.', rarity: 'común', cost: 0 },
+  { code: 'desertdigital', name: 'Desert Digital', desc: 'Camuflaje pixelado de desierto de alta visibilidad táctica.', rarity: 'común', cost: 0, premiumOnly: true },
+  { code: 'kryptek', name: 'Kryptek Typhon', desc: 'Escamas tácticas tridimensionales de sigilo urbano.', rarity: 'legendario', cost: 0, premiumOnly: true },
+  { code: 'cadpat', name: 'CADPAT Digital', desc: 'Diseño digital canadiense templado de gran contraste.', rarity: 'raro', cost: 0, premiumOnly: true },
+  { code: 'acu', name: 'UCP Digital (ACU)', desc: 'Camuflaje pixelado gris/verde de combate universal.', rarity: 'común', cost: 0, premiumOnly: true },
   
   // Skins Especiales / Fantasía
-  { code: 'golden', name: 'Golden Elite', desc: 'Oro brillante pulido y carbón premium.', rarity: 'raro', cost: 0 },
-  { code: 'kittens', name: 'Gatitos Tácticos', desc: 'Tierno estilo pastel y mininos de combate.', rarity: 'común', cost: 0 },
-  { code: 'cyberpunk', name: 'Cyberpunk Neon', desc: 'Líneas neón fucsia/cyan brillantes con rejilla ciber.', rarity: 'raro', cost: 350 },
-  { code: 'zombie', name: 'Infección Zombie', desc: 'Grunge verde tóxico con logotipo de biopeligro.', rarity: 'común', cost: 400 },
-  { code: 'arctic', name: 'Helada Ártica', desc: 'Gris gélido con copos de nieve geométricos.', rarity: 'común', cost: 450 },
-  { code: 'magma', name: 'Furia Volcánica', desc: 'Rocas de carbón agrietadas y ríos de lava ardiente.', rarity: 'raro', cost: 500 },
-  { code: 'nebula', name: 'Vórtice Estelar', desc: 'Fondo espacial de nebulosa galáctica morada/azul.', rarity: 'raro', cost: 600 },
-  { code: 'retro', name: 'Retro 8-Bit', desc: 'Rejilla clásica de arcade e inspiración pixel-art.', rarity: 'común', cost: 650 },
-  { code: 'waifu', name: 'Anime Kawaii (Waifu)', desc: 'Flores de cerezo, bordes rosa y estilo otaku.', rarity: 'legendario', cost: 800 },
-  { code: 'carbon', name: 'Carbono Táctico', desc: 'Fibra de carbono negra con marcas de peligro naranja.', rarity: 'legendario', cost: 950 }
+  { code: 'golden', name: 'Golden Elite', desc: 'Oro brillante pulido y carbón premium.', rarity: 'raro', cost: 0, premiumOnly: true },
+  { code: 'kittens', name: 'Gatitos Tácticos', desc: 'Tierno estilo pastel y mininos de combate.', rarity: 'común', cost: 0, premiumOnly: true },
+  { code: 'cyberpunk', name: 'Cyberpunk Neon', desc: 'Líneas neón fucsia/cyan brillantes con rejilla ciber.', rarity: 'raro', cost: 350, premiumOnly: true },
+  { code: 'zombie', name: 'Infección Zombie', desc: 'Grunge verde tóxico con logotipo de biopeligro.', rarity: 'común', cost: 400, premiumOnly: true },
+  { code: 'arctic', name: 'Helada Ártica', desc: 'Gris gélido con copos de nieve geométricos.', rarity: 'común', cost: 450, premiumOnly: true },
+  { code: 'magma', name: 'Furia Volcánica', desc: 'Rocas de carbón agrietadas y ríos de lava ardiente.', rarity: 'raro', cost: 500, premiumOnly: true },
+  { code: 'nebula', name: 'Vórtice Estelar', desc: 'Fondo espacial de nebulosa galáctica morada/azul.', rarity: 'raro', cost: 600, premiumOnly: true },
+  { code: 'retro', name: 'Retro 8-Bit', desc: 'Rejilla clásica de arcade e inspiración pixel-art.', rarity: 'común', cost: 650, premiumOnly: true },
+  { code: 'waifu', name: 'Anime Kawaii (Waifu)', desc: 'Flores de cerezo, bordes rosa y estilo otaku.', rarity: 'legendario', cost: 800, premiumOnly: true },
+  { code: 'carbon', name: 'Carbono Táctico', desc: 'Fibra de carbono negra con marcas de peligro naranja.', rarity: 'legendario', cost: 950, premiumOnly: true }
 ];
 
 const ANIMATIONS_CATALOG: CatalogItem[] = [
@@ -183,6 +184,14 @@ export default function OperatorPlayerDashboard({
   const [loading, setLoading] = useState(true);
   const [equippingCode, setEquippingCode] = useState<string | null>(null);
   const [buyingCode, setBuyingCode] = useState<string | null>(null);
+
+  const [previewSkin, setPreviewSkin] = useState<string>(equippedSkin);
+  const [selectedPreviewSkin, setSelectedPreviewSkin] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewSkin(equippedSkin);
+    setSelectedPreviewSkin(null);
+  }, [equippedSkin]);
 
   // Load Dashboard Data
   useEffect(() => {
@@ -728,69 +737,122 @@ export default function OperatorPlayerDashboard({
                     <div className="skin-selector-panel" style={{ maxHeight: '540px', overflowY: 'auto', paddingRight: '8px' }}>
                       
                       {/* SUBTAB: SKINS */}
-                      {idlabSubTab === 'skins' && SKINS_CATALOG.map((item) => {
-                        const isUnlocked = unlockedItems.includes(item.code);
-                        const isEquipped = equippedSkin === item.code;
-                        const isBuying = buyingCode === item.code;
-                        const isEquipping = equippingCode === item.code;
+                      {idlabSubTab === 'skins' && (
+                        <div className="skin-customizer-container">
+                          <p style={{ fontSize: '13px', color: '#9caab3', margin: '0 0 16px' }}>
+                            Pasa el cursor o selecciona una burbuja para previsualizar. Presiona "Equipar" abajo para guardar.
+                          </p>
+                          
+                          <div className="skin-bubbles-grid">
+                            {SKINS_CATALOG.map((item) => {
+                              const isCurrentlyEquipped = equippedSkin === item.code;
+                              const isCurrentlyPreviewed = previewSkin === item.code;
+                              const isPremiumUser = operatorData?.isPremium === true;
+                              const isLocked = Boolean(item.premiumOnly) && !isPremiumUser;
 
-                        return (
-                          <div
-                            key={item.code}
-                            className={`skin-option-card ${isEquipped ? 'is-active' : ''}`}
-                            onClick={() => {
-                              if (!isEquipped && isUnlocked && equippingCode === null) {
-                                void handleEquipItem('skin', item.code);
-                              }
-                            }}
-                          >
-                            {/* Mini Preview Texture Banner */}
-                            <div className={`skin-mini-preview oc-skin-${item.code}`} />
-
-                            <div className="skin-option-info">
-                              <div className="skin-option-header">
-                                <h3 className="skin-option-name" style={{ fontSize: '15px' }}>{item.name}</h3>
-                                <span className={`achievement-rarity rarity-${item.rarity.replace('ú', 'u')}`} style={{ fontSize: '9px', marginTop: 0 }}>
-                                  {item.rarity}
-                                </span>
-                              </div>
-                              <p className="skin-option-desc" style={{ fontSize: '12px', minHeight: '32px' }}>{item.desc}</p>
-                            </div>
-
-                            <div className="skin-option-action">
-                              {isEquipped ? (
-                                <span style={{ color: '#c8ff5c', fontSize: '13px', fontWeight: 700, padding: '6px 10px', background: 'rgba(200, 255, 92, 0.08)', borderRadius: '8px', border: '1px solid rgba(200, 255, 92, 0.2)' }}>Equipado</span>
-                              ) : isUnlocked ? (
+                              return (
                                 <button
+                                  key={item.code}
                                   type="button"
-                                  className="primary-btn"
-                                  style={{ padding: '6px 12px', fontSize: '13px', background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
-                                  disabled={equippingCode !== null}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleEquipItem('skin', item.code);
+                                  className={`skin-bubble oc-skin-${item.code} ${isCurrentlyEquipped ? 'is-equipped' : ''} ${isCurrentlyPreviewed ? 'is-previewed' : ''} ${isLocked ? 'is-locked' : ''}`}
+                                  onMouseEnter={() => {
+                                    if (!isLocked) setPreviewSkin(item.code);
                                   }}
-                                >
-                                  {isEquipping ? 'Equipando...' : 'Equipar'}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="primary-btn"
-                                  style={{ padding: '6px 12px', fontSize: '13px', background: '#c8ff5c', color: '#111a24', border: 'none' }}
-                                  disabled={buyingCode !== null}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleUnlockItem(item);
+                                  onFocus={() => {
+                                    if (!isLocked) setPreviewSkin(item.code);
                                   }}
+                                  onMouseLeave={() => {
+                                    setPreviewSkin(selectedPreviewSkin || equippedSkin);
+                                  }}
+                                  onBlur={() => {
+                                    setPreviewSkin(selectedPreviewSkin || equippedSkin);
+                                  }}
+                                  onClick={() => {
+                                    setSelectedPreviewSkin(item.code);
+                                    setPreviewSkin(item.code);
+                                  }}
+                                  aria-label={item.name}
+                                  title={`${item.name} (${item.rarity})${item.premiumOnly ? ' - Solo Premium 💎' : ''}`}
                                 >
-                                  {isBuying ? 'Desbloqueando...' : `Desbloquear (${item.cost} 🪙)`}
+                                  {isLocked && <span className="bubble-lock-icon">🔒</span>}
+                                  {isCurrentlyEquipped && <span className="bubble-check-mark">✓</span>}
                                 </button>
-                              )}
-                            </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+
+                          {/* Selected Skin Details Area */}
+                          {(() => {
+                            const activePreviewCode = selectedPreviewSkin || previewSkin || equippedSkin;
+                            const activeItem = SKINS_CATALOG.find(i => i.code === activePreviewCode) || SKINS_CATALOG[0];
+                            const isUnlocked = unlockedItems.includes(activeItem.code);
+                            const isCurrentlyEquipped = equippedSkin === activeItem.code;
+                            const isPremiumUser = operatorData?.isPremium === true;
+                            const isLockedForUser = Boolean(activeItem.premiumOnly) && !isPremiumUser;
+                            const isBuying = buyingCode === activeItem.code;
+                            const isEquipping = equippingCode === activeItem.code;
+
+                            return (
+                              <div className="active-skin-details-card">
+                                <div className="active-skin-details-header">
+                                  <div>
+                                    <h4 className="active-skin-name">{activeItem.name}</h4>
+                                    <p className="active-skin-desc">{activeItem.desc}</p>
+                                  </div>
+                                  <span className={`achievement-rarity rarity-${activeItem.rarity.replace('ú', 'u')}`}>
+                                    {activeItem.rarity}
+                                  </span>
+                                </div>
+
+                                <div className="active-skin-actions">
+                                  {isLockedForUser ? (
+                                    <div className="premium-lock-banner">
+                                      <span>💎 Bloqueado (Requiere Suscripción Premium)</span>
+                                    </div>
+                                  ) : isCurrentlyEquipped ? (
+                                    <span className="equipped-badge">Equipado ✓</span>
+                                  ) : isUnlocked ? (
+                                    <button
+                                      type="button"
+                                      className="primary-btn equip-action-btn"
+                                      disabled={equippingCode !== null}
+                                      onClick={() => {
+                                        void handleEquipItem('skin', activeItem.code);
+                                      }}
+                                    >
+                                      {isEquipping ? 'Equipando...' : 'Equipar Skin'}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="primary-btn buy-action-btn"
+                                      disabled={buyingCode !== null}
+                                      onClick={() => {
+                                        void handleUnlockItem(activeItem);
+                                      }}
+                                    >
+                                      {isBuying ? 'Desbloqueando...' : `Desbloquear (${activeItem.cost} 🪙)`}
+                                    </button>
+                                  )}
+
+                                  {selectedPreviewSkin && selectedPreviewSkin !== equippedSkin && (
+                                    <button
+                                      type="button"
+                                      className="ghost-btn reset-preview-btn"
+                                      onClick={() => {
+                                        setSelectedPreviewSkin(null);
+                                        setPreviewSkin(equippedSkin);
+                                      }}
+                                    >
+                                      Restaurar vista
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
 
                       {/* SUBTAB: ANIMATIONS */}
                       {idlabSubTab === 'animations' && ANIMATIONS_CATALOG.map((item) => {
@@ -871,7 +933,7 @@ export default function OperatorPlayerDashboard({
                       {operatorData ? (
                         <OperatorCredentialCard
                           data={operatorData}
-                          defaultSkin={equippedSkin}
+                          defaultSkin={previewSkin}
                           equippedAnimation={equippedAnimation}
                           equippedSound={equippedSound}
                         />

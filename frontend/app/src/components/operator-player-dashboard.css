@@ -1228,3 +1228,191 @@
   font-size: 12px;
   color: #c4d4dc;
 }
+
+/* ─────────────────────────────────────────
+   ID LAB — BUBBLES SKINS SELECTOR
+   ───────────────────────────────────────── */
+.skin-customizer-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.skin-bubbles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 4px;
+}
+
+.skin-bubble {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  padding: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.skin-bubble:hover,
+.skin-bubble:focus {
+  transform: scale(1.15);
+  border-color: #c8ff5c;
+  box-shadow: 0 0 12px rgba(200, 255, 92, 0.4);
+  z-index: 5;
+  outline: none;
+}
+
+.skin-bubble.is-previewed {
+  border-color: #ffd700;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+  transform: scale(1.1);
+}
+
+.skin-bubble.is-equipped {
+  border-color: #c8ff5c;
+  outline: 2px solid rgba(200, 255, 92, 0.35);
+  outline-offset: 2px;
+}
+
+.skin-bubble.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: saturate(0.6) brightness(0.8);
+}
+
+.skin-bubble.is-locked:hover,
+.skin-bubble.is-locked:focus {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+
+.bubble-lock-icon {
+  font-size: 11px;
+  position: absolute;
+  background: rgba(13, 22, 31, 0.85);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffb74d;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.bubble-check-mark {
+  font-size: 18px;
+  font-weight: 900;
+  color: #c8ff5c;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 8px rgba(200, 255, 92, 0.8);
+  pointer-events: none;
+}
+
+/* Active skin details panel */
+.active-skin-details-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(13, 22, 31, 0.4);
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.active-skin-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.active-skin-name {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.03em;
+}
+
+.active-skin-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #9caab3;
+  line-height: 1.4;
+}
+
+.active-skin-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.premium-lock-banner {
+  background: rgba(255, 117, 143, 0.08);
+  border: 1px solid rgba(255, 117, 143, 0.25);
+  color: #ff758f;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  width: 100%;
+  text-align: center;
+}
+
+.equipped-badge {
+  color: #c8ff5c;
+  background: rgba(200, 255, 92, 0.08);
+  border: 1px solid rgba(200, 255, 92, 0.25);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.equip-action-btn {
+  background: #c8ff5c;
+  color: #111a24;
+  border: none;
+  font-size: 13px;
+  padding: 7px 14px;
+}
+
+.buy-action-btn {
+  background: #c8ff5c;
+  color: #111a24;
+  border: none;
+  font-size: 13px;
+  padding: 7px 14px;
+}
+
+.reset-preview-btn {
+  font-size: 12px;
+  color: #9caab3;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.reset-preview-btn:hover {
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+}
+

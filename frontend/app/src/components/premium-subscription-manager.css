@@ -1,0 +1,218 @@
+.premium-manager-shell {
+  width: min(100%, 1120px);
+  border: 1px solid rgba(203, 236, 217, 0.15);
+  border-radius: 18px;
+  padding: 24px;
+  background: rgba(7, 19, 19, 0.52);
+  display: grid;
+  gap: 16px;
+  color: #e8f1f4;
+  font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+}
+
+.premium-manager-header h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #f6c95e;
+  text-shadow: 0 0 15px rgba(246, 201, 94, 0.3);
+}
+
+.premium-manager-header p {
+  margin: 6px 0 0;
+  color: #9caab3;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.premium-manager-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+
+.premium-search-input {
+  border-radius: 10px;
+  border: 1px solid rgba(190, 232, 209, 0.25);
+  background: rgba(6, 12, 13, 0.85);
+  color: #eef8f4;
+  padding: 11px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.premium-search-input:focus {
+  border-color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.25);
+}
+
+.premium-reload-btn {
+  border-radius: 10px;
+  border: 1px solid rgba(246, 201, 94, 0.35);
+  background: rgba(30, 25, 10, 0.85);
+  color: #ffd700;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.premium-reload-btn:hover {
+  background: rgba(58, 48, 15, 0.95);
+  color: #ffffff;
+}
+
+.premium-reload-btn:active {
+  transform: scale(0.97);
+}
+
+.premium-manager-error {
+  margin: 0;
+  color: #ff758f;
+  font-size: 14px;
+}
+
+.premium-manager-status {
+  margin: 0;
+  color: #9caab3;
+  font-size: 13px;
+}
+
+.premium-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  overflow-x: auto;
+}
+
+.premium-manager-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+
+.premium-manager-table th,
+.premium-manager-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+.premium-manager-table th {
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 700;
+  color: #9caab3;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.premium-manager-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.premium-manager-table tr.row-premium {
+  background: rgba(246, 201, 94, 0.02);
+}
+
+.premium-manager-table tr.row-premium:hover {
+  background: rgba(246, 201, 94, 0.04);
+}
+
+.cell-nickname {
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.premium-star {
+  display: inline-block;
+  animation: star-glow 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes star-glow {
+  0% { transform: scale(0.9); filter: drop-shadow(0 0 2px rgba(255,215,0,0.4)); }
+  100% { transform: scale(1.1); filter: drop-shadow(0 0 6px rgba(255,215,0,0.8)); }
+}
+
+.premium-status-pill {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-block;
+}
+
+.premium-status-pill.is-active {
+  background: rgba(246, 201, 94, 0.12);
+  color: #f6c95e;
+  border: 1px solid rgba(246, 201, 94, 0.3);
+}
+
+.premium-status-pill.is-inactive {
+  background: rgba(255, 255, 255, 0.06);
+  color: #9caab3;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.premium-toggle-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.premium-toggle-btn.btn-activate {
+  border: 1px solid rgba(246, 201, 94, 0.5);
+  background: linear-gradient(150deg, rgba(122, 95, 27, 0.8), rgba(46, 36, 10, 0.9));
+  color: #ffd700;
+}
+
+.premium-toggle-btn.btn-activate:hover:not(:disabled) {
+  background: linear-gradient(150deg, rgba(160, 125, 35, 0.9), rgba(58, 46, 12, 0.98));
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+}
+
+.premium-toggle-btn.btn-deactivate {
+  border: 1px solid rgba(255, 117, 143, 0.4);
+  background: rgba(255, 117, 143, 0.08);
+  color: #ff758f;
+}
+
+.premium-toggle-btn.btn-deactivate:hover:not(:disabled) {
+  background: rgba(255, 117, 143, 0.16);
+  color: #ff9f9f;
+}
+
+.premium-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.premium-manager-loading,
+.premium-manager-empty {
+  padding: 32px;
+  text-align: center;
+  color: #9caab3;
+  font-size: 15px;
+}
+
+@media (max-width: 768px) {
+  .premium-manager-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .premium-manager-shell {
+    padding: 16px;
+  }
+}

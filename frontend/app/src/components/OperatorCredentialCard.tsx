@@ -26,6 +26,7 @@ export interface OperatorCredentialData {
   totalFairPlayRed?: number;
   confirmedEvents?: number;
   achievementsUnlocked?: number;
+  isPremium?: boolean;
 }
 
 interface OperatorCredentialCardProps {
@@ -115,8 +116,8 @@ export function OperatorCredentialCard({
   return (
     <section className="oc-shell" aria-label="Credencial de Operador">
       <div className="oc-flip-wrap">
-        <article
-          className={`oc-card oc-skin-${skin} oc-anim-${equippedAnimation} ${isFlipped ? 'is-flipped' : ''}`}
+         <article
+          className={`oc-card oc-skin-${skin} oc-anim-${equippedAnimation} ${isFlipped ? 'is-flipped' : ''} ${data.isPremium ? 'is-premium' : ''}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onClick={() => setIsFlipped((prev) => !prev)}
@@ -136,7 +137,10 @@ export function OperatorCredentialCard({
                       <h2 className="oc-title">Credencial de Operador</h2>
                     </div>
                   </div>
-                  <span className="oc-chip">CO</span>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {data.isPremium && <span className="oc-premium-badge">💎 PREMIUM</span>}
+                    <span className="oc-chip">CO</span>
+                  </div>
                 </header>
 
                 {/* Identity: Avatar + Info */}
@@ -216,7 +220,10 @@ export function OperatorCredentialCard({
                     <p className="oc-eyebrow">AIRSOFT ID</p>
                     <h2 className="oc-title">Lado Táctico</h2>
                   </div>
-                  <span className="oc-chip">BACK</span>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {data.isPremium && <span className="oc-premium-badge">💎 PREMIUM</span>}
+                    <span className="oc-chip">BACK</span>
+                  </div>
                 </header>
 
                 {/* Platform Badge */}
