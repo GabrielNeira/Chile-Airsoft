@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { OperatorCredentialCard, OperatorCredentialData } from './OperatorCredentialCard';
 import { getOperatorIdMetricsByUserId, OperatorIdMetricsRow } from '../lib/operatorMetricsApi';
+import { getOnboardingStepFlag, setOnboardingStepFlag } from '../lib/onboardingProgress';
 import './operator-player-dashboard.css';
 
 interface OperatorPlayerDashboardProps {
@@ -13,6 +14,9 @@ interface OperatorPlayerDashboardProps {
   onEquipSkin: (skin: string) => Promise<void>;
   onEquipAnimation: (animation: string) => Promise<void>;
   onEquipSound: (sound: string) => Promise<void>;
+  onNavigateToEditProfile: () => void;
+  onNavigateToEmergencyData: () => void;
+  onNavigateToEvents: () => void;
 }
 
 interface ProgressionData {
@@ -162,11 +166,18 @@ export default function OperatorPlayerDashboard({
   equippedSound,
   onEquipSkin,
   onEquipAnimation,
-  onEquipSound
+  onEquipSound,
+  onNavigateToEditProfile,
+  onNavigateToEmergencyData,
+  onNavigateToEvents
 }: OperatorPlayerDashboardProps) {
   const [activeTab, setActiveTab] = useState<'inicio' | 'idlab' | 'eventos' | 'logros'>('inicio');
   const [idlabSubTab, setIdlabSubTab] = useState<'skins' | 'animations' | 'sounds'>('skins');
   const [metrics, setMetrics] = useState<OperatorIdMetricsRow | null>(null);
+  const [reviewedEvent] = useState(() => getOnboardingStepFlag(userId, 'reviewed-event'));
+  const [viewedEconomyGuide, setViewedEconomyGuide] = useState(() => getOnboardingStepFlag(userId, 'viewed-economy-guide'));
+  const [onboardingConfirmation, setOnboardingConfirmation] = useState<string | null>(null);
+  const economyGuideRef = useRef<HTMLDivElement | null>(null);
   
   const [progression, setProgression] = useState<ProgressionData>({
     xp_total: 0,
@@ -199,6 +210,14 @@ export default function OperatorPlayerDashboard({
     setPreviewSkin(equippedSkin);
     setSelectedPreviewSkin(null);
   }, [equippedSkin]);
+
+  useEffect(() => {
+    if (!onboardingConfirmation) {
+      return;
+    }
+    const timer = window.setTimeout(() => setOnboardingConfirmation(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [onboardingConfirmation]);
 
   // Load Dashboard Data
   useEffect(() => {
@@ -461,6 +480,30 @@ export default function OperatorPlayerDashboard({
     return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
+  // ─── ONBOARDING STEP STATUS (derivado de datos reales, sin columnas nuevas) ───
+  const onboardingStep1Done = Boolean(userId);
+  const onboardingStep2Done = Boolean(operatorData?.nickname?.trim() && operatorData?.credentialId?.trim());
+  const onboardingStep3Done = Boolean(
+    operatorData?.iceName && operatorData.iceName !== 'Sin dato' &&
+    operatorData?.icePhone && operatorData.icePhone !== 'Sin dato'
+  );
+  const onboardingStep4Done = reviewedEvent;
+  const onboardingStep5Done = equippedSkin !== 'multicam' || equippedAnimation !== 'classic';
+  const onboardingStep6Done = viewedEconomyGuide;
+
+  const essentialStepsDone = [onboardingStep1Done, onboardingStep2Done, onboardingStep3Done, onboardingStep4Done].filter(Boolean).length;
+  const totalStepsDone = essentialStepsDone + [onboardingStep5Done, onboardingStep6Done].filter(Boolean).length;
+  const isReadyToUseAirsoftId = essentialStepsDone === 4;
+
+  function handleViewEconomyGuide() {
+    if (!viewedEconomyGuide) {
+      setOnboardingStepFlag(userId, 'viewed-economy-guide');
+      setViewedEconomyGuide(true);
+      setOnboardingConfirmation('Paso completado: guía revisada.');
+    }
+    economyGuideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
     <div className="player-dashboard-shell">
       {/* ── Left Sidebar (Avatar, Level, Economy) ── */}
@@ -639,55 +682,85 @@ export default function OperatorPlayerDashboard({
                     </article>
                   </div>
 
-                  {/* ─── ONBOARDING BANNER (solo para nuevos usuarios) ─── */}
-                  {progression.level <= 1 && (metrics?.total_confirmed_events ?? 0) === 0 && (
+                  {/* ─── ONBOARDING BANNER (checklist oficial de Airsoft ID) ─── */}
+                  {!isReadyToUseAirsoftId && (
                     <div className="onboarding-banner">
                       <div className="onboarding-banner-header">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="onboarding-icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                         <h3 className="onboarding-title">¡Bienvenido a Airsoft ID! — Pasos iniciales</h3>
                       </div>
+
+                      <p className="onboarding-progress-text">
+                        Configuración esencial: {essentialStepsDone} de 4 · Progreso general: {totalStepsDone} de 6
+                      </p>
+
+                      {onboardingConfirmation && (
+                        <p className="onboarding-confirmation" role="status" aria-live="polite">{onboardingConfirmation}</p>
+                      )}
+
                       <ol className="onboarding-steps">
                         <li className="onboarding-step is-done">
                           <span className="step-number">1</span>
                           <div>
                             <strong>Crear cuenta y sesión</strong>
-                            <p>Tu cuenta ya está activa.</p>
+                            <p>Su cuenta ya está activa.</p>
                           </div>
+                          <span className="step-check" aria-hidden="true">✓</span>
                         </li>
-                        <li className={`onboarding-step ${operatorData ? 'is-done' : 'is-pending'}`}>
-                          <span className="step-number">2</span>
-                          <div>
-                            <strong>Completar tu Airsoft ID</strong>
-                            <p>Alias, grupo sanguíneo y contactos de emergencia.</p>
-                          </div>
+
+                        <li className={`onboarding-step ${onboardingStep2Done ? 'is-done' : essentialStepsDone === 1 ? 'is-next' : 'is-pending'}`}>
+                          <button type="button" className="onboarding-step-btn" onClick={onNavigateToEditProfile}>
+                            <span className="step-number">2</span>
+                            <div>
+                              <strong>Completar tu Airsoft ID</strong>
+                              <p>Configure su alias, avatar y datos básicos de operador.</p>
+                            </div>
+                            {onboardingStep2Done && <span className="step-check" aria-hidden="true">✓</span>}
+                          </button>
                         </li>
-                        <li className="onboarding-step is-pending">
-                          <span className="step-number">3</span>
-                          <div>
-                            <strong>Revisar datos de emergencia</strong>
-                            <p>Contacto ICE, alergias y medicamentos críticos.</p>
-                          </div>
+
+                        <li className={`onboarding-step ${onboardingStep3Done ? 'is-done' : essentialStepsDone === 2 ? 'is-next' : 'is-pending'}`}>
+                          <button type="button" className="onboarding-step-btn" onClick={onNavigateToEmergencyData}>
+                            <span className="step-number">3</span>
+                            <div>
+                              <strong>Revisar datos de emergencia</strong>
+                              <p>Confirme su contacto y teléfono de emergencia.</p>
+                            </div>
+                            {onboardingStep3Done && <span className="step-check" aria-hidden="true">✓</span>}
+                          </button>
                         </li>
-                        <li className="onboarding-step is-pending">
-                          <span className="step-number">4</span>
-                          <div>
-                            <strong>Buscar eventos activos</strong>
-                            <p>Revisa la sección “Buscar Eventos” en el menú.</p>
-                          </div>
+
+                        <li className={`onboarding-step ${onboardingStep4Done ? 'is-done' : essentialStepsDone === 3 ? 'is-next' : 'is-pending'}`}>
+                          <button type="button" className="onboarding-step-btn" onClick={onNavigateToEvents}>
+                            <span className="step-number">4</span>
+                            <div>
+                              <strong>Revisar un evento activo</strong>
+                              <p>Abra un evento y revise su fecha, ubicación, cupos y condiciones.</p>
+                            </div>
+                            {onboardingStep4Done && <span className="step-check" aria-hidden="true">✓</span>}
+                          </button>
                         </li>
-                        <li className="onboarding-step is-pending">
-                          <span className="step-number">5</span>
-                          <div>
-                            <strong>Personalizar tu credencial</strong>
-                            <p>Elige un camuflaje en el tab “ID Lab (Diseño)”.</p>
-                          </div>
+
+                        <li className={`onboarding-step ${onboardingStep5Done ? 'is-done' : 'is-recommended'}`}>
+                          <button type="button" className="onboarding-step-btn" onClick={() => setActiveTab('idlab')}>
+                            <span className="step-number">5</span>
+                            <div>
+                              <strong>Personalizar tu credencial {!onboardingStep5Done && <em className="step-tag">Recomendado</em>}</strong>
+                              <p>Revise los diseños disponibles para su Airsoft ID.</p>
+                            </div>
+                            {onboardingStep5Done && <span className="step-check" aria-hidden="true">✓</span>}
+                          </button>
                         </li>
-                        <li className="onboarding-step is-pending">
-                          <span className="step-number">6</span>
-                          <div>
-                            <strong>Entender Creditsoft y Premium</strong>
-                            <p>Lee la guía más abajo para saber cómo ganar créditos.</p>
-                          </div>
+
+                        <li className={`onboarding-step ${onboardingStep6Done ? 'is-done' : 'is-recommended'}`}>
+                          <button type="button" className="onboarding-step-btn" onClick={handleViewEconomyGuide}>
+                            <span className="step-number">6</span>
+                            <div>
+                              <strong>Creditsoft y Premium {!onboardingStep6Done && <em className="step-tag">Recomendado</em>}</strong>
+                              <p>¿Cómo funcionan Creditsoft y Premium?</p>
+                            </div>
+                            {onboardingStep6Done && <span className="step-check" aria-hidden="true">✓</span>}
+                          </button>
                         </li>
                       </ol>
                     </div>
@@ -703,7 +776,7 @@ export default function OperatorPlayerDashboard({
                   </div>
 
                   {/* ─── CREDITSOFT & PREMIUM GUIDE ─── */}
-                  <div className="economy-guide-card">
+                  <div className="economy-guide-card" ref={economyGuideRef}>
                     <div className="economy-guide-header">
                       <span className="economy-guide-icon">🧠</span>
                       <h3 className="economy-guide-title">¿Cómo funcionan Creditsoft y Premium?</h3>
