@@ -7,10 +7,12 @@ import GodEventsMaintainer from './components/GodEventsMaintainer';
 import GodFieldMaintainer from './components/GodFieldMaintainer';
 import OperatorEventMarketplace from './components/OperatorEventMarketplace';
 import CheckoutResultView from './components/CheckoutResultView';
+import AuthConfirmView from './components/AuthConfirmView';
 import OperatorPlayerDashboard from './components/OperatorPlayerDashboard';
 import PremiumSubscriptionManager from './components/PremiumSubscriptionManager';
 import { getOperatorIdMetricsByUserId, getOperatorMetricScoreByUserId } from './lib/operatorMetricsApi';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
+import { setOnboardingStepFlag } from './lib/onboardingProgress';
 type AuthMode = 'login' | 'signup' | 'recovery';
 type AdminOpsWorkspace = 'eventos' | 'proceso' | 'scanner' | 'god';
 type GodWorkspace = 'users' | 'events' | 'fields';
@@ -268,6 +270,10 @@ function App() {
     return <CheckoutResultView />;
   }
 
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/confirm')) {
+    return <AuthConfirmView />;
+  }
+
   const [authLoading, setAuthLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
@@ -305,7 +311,7 @@ function App() {
     nickname: '',
     realName: '',
     rut: '',
-    bloodGroup: 'O+',
+    bloodGroup: '',
     team: '',
     operatorRole: 'assault',
     emergencyContactName: '',
@@ -339,6 +345,7 @@ function App() {
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [operatorData, setOperatorData] = useState<CredentialOperatorViewModel | null>(null);
   const [activeExperienceSection, setActiveExperienceSection] = useState<'id' | 'operations' | 'marketplace' | 'dashboard' | 'premium_admin'>('id');
+  const [scrollToEmergencySection, setScrollToEmergencySection] = useState(false);
   const [equippedSkin, setEquippedSkin] = useState<string>('multicam');
   const [equippedAnimation, setEquippedAnimation] = useState<string>('classic');
   const [equippedSound, setEquippedSound] = useState<string>('classic');
@@ -1341,7 +1348,7 @@ function App() {
         nickname: '',
         realName: '',
         rut: '',
-        bloodGroup: 'O+',
+        bloodGroup: '',
         team: '',
         operatorRole: 'assault',
         emergencyContactName: '',
@@ -1403,6 +1410,39 @@ function App() {
 
     setEditHint('Logo de equipo listo para guardar.');
   }
+
+  function handleOnboardingNavigateToEditProfile() {
+    setActiveExperienceSection('id');
+    setEditMode(true);
+    setEditError(null);
+    setEditHint(null);
+  }
+
+  function handleOnboardingNavigateToEmergencyData() {
+    handleOnboardingNavigateToEditProfile();
+    setScrollToEmergencySection(true);
+  }
+
+  function handleOnboardingNavigateToEvents() {
+    setActiveExperienceSection('marketplace');
+  }
+
+  function handleOnboardingEventReviewed(_eventId: string) {
+    setOnboardingStepFlag(sessionUserId, 'reviewed-event');
+  }
+
+  useEffect(() => {
+    if (!editMode || !scrollToEmergencySection) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      document.getElementById('edit-required-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setScrollToEmergencySection(false);
+    }, 50);
+
+    return () => window.clearTimeout(timer);
+  }, [editMode, scrollToEmergencySection]);
 
   async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1991,7 +2031,7 @@ function App() {
               )}
             </>
           ) : activeExperienceSection === 'marketplace' ? (
-            <OperatorEventMarketplace enabled={Boolean(sessionUserId)} />
+            <OperatorEventMarketplace enabled={Boolean(sessionUserId)} onEventReviewed={handleOnboardingEventReviewed} />
           ) : activeExperienceSection === 'premium_admin' && canManagePremium ? (
             <PremiumSubscriptionManager />
           ) : activeExperienceSection === 'dashboard' ? (
@@ -2004,6 +2044,9 @@ function App() {
               onEquipSkin={handleEquipSkin}
               onEquipAnimation={handleEquipAnimation}
               onEquipSound={handleEquipSound}
+              onNavigateToEditProfile={handleOnboardingNavigateToEditProfile}
+              onNavigateToEmergencyData={handleOnboardingNavigateToEmergencyData}
+              onNavigateToEvents={handleOnboardingNavigateToEvents}
             />
           ) : activeExperienceSection === 'operations' && canAccessFieldOperations ? (
             <>
@@ -2248,7 +2291,9 @@ function App() {
                     <select
                       value={registrationForm.bloodGroup}
                       onChange={(e) => setRegistrationForm((prev) => ({ ...prev, bloodGroup: e.target.value }))}
+                      required
                     >
+                      <option value="" disabled>Selecciona una opción</option>
                       <option value="A+">A+</option>
                       <option value="A-">A-</option>
                       <option value="B+">B+</option>

@@ -1042,6 +1042,86 @@
   margin-top: 1px;
 }
 
+.onboarding-progress-text {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: #9caab3;
+  font-weight: 600;
+}
+
+.onboarding-confirmation {
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(200, 255, 92, 0.1);
+  border: 1px solid rgba(200, 255, 92, 0.25);
+  color: #c8ff5c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.onboarding-step-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.onboarding-step-btn:hover strong {
+  text-decoration: underline;
+}
+
+/* "acción siguiente" — verde lima institucional, distinto del verde de completado */
+.onboarding-step.is-next {
+  background: rgba(200, 255, 92, 0.1);
+  border-color: rgba(200, 255, 92, 0.4);
+}
+
+.onboarding-step.is-next .step-number {
+  background: rgba(200, 255, 92, 0.25);
+  color: #c8ff5c;
+}
+
+/* pasos recomendados (no bloquean el onboarding esencial) — amarillo, nunca rojo */
+.onboarding-step.is-recommended {
+  background: rgba(246, 201, 94, 0.05);
+  border-color: rgba(246, 201, 94, 0.2);
+}
+
+.onboarding-step.is-recommended .step-number {
+  background: rgba(246, 201, 94, 0.18);
+  color: #f6c95e;
+}
+
+.step-tag {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #f6c95e;
+  background: rgba(246, 201, 94, 0.12);
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.step-check {
+  margin-left: auto;
+  color: #c8ff5c;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
 /* ─────────────────────────────────────────
    ECONOMY GUIDE CARD (Creditsoft & Premium)
    ───────────────────────────────────────── */

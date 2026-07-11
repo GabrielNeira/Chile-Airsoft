@@ -4,6 +4,7 @@ import './operator-event-marketplace.css';
 
 interface OperatorEventMarketplaceProps {
   enabled: boolean;
+  onEventReviewed?: (eventId: string) => void;
 }
 
 interface ActiveEventRow {
@@ -76,13 +77,25 @@ function mapError(error: unknown): string {
   return message;
 }
 
-export default function OperatorEventMarketplace({ enabled }: OperatorEventMarketplaceProps) {
+export default function OperatorEventMarketplace({ enabled, onEventReviewed }: OperatorEventMarketplaceProps) {
   const [events, setEvents] = useState<EventCardViewModel[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [busyEventId, setBusyEventId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Explora eventos activos para registrarte y pagar.');
   const [error, setError] = useState<string | null>(null);
+  const [reviewedEventIds, setReviewedEventIds] = useState<Set<string>>(new Set());
+
+  function handleReviewEvent(eventId: string) {
+    setReviewedEventIds((prev) => {
+      if (prev.has(eventId)) {
+        return prev;
+      }
+      setStatusMessage('Paso completado: evento revisado. ✓');
+      return new Set(prev).add(eventId);
+    });
+    onEventReviewed?.(eventId);
+  }
 
   const visibleEvents = useMemo(() => {
     const token = search.trim().toLowerCase();
@@ -229,14 +242,24 @@ export default function OperatorEventMarketplace({ enabled }: OperatorEventMarke
           const rawStatus = eventCard.myRegistrationStatus ?? '';
           const resolvedStatus = statusMap[rawStatus.toLowerCase()] ?? { label: rawStatus.toUpperCase(), cls: 'status-default' };
 
+          const isReviewed = reviewedEventIds.has(eventCard.eventId);
+
           return (
-            <article key={eventCard.eventId} className="operator-event-card">
+            <article
+              key={eventCard.eventId}
+              className="operator-event-card"
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleReviewEvent(eventCard.eventId)}
+            >
               <div className="operator-event-header">
                 <p className="operator-event-field">📍 {eventCard.fieldName}</p>
                 {alreadyRegistered && (
                   <span className={`operator-event-status-badge ${resolvedStatus.cls}`}>
                     {resolvedStatus.label}
                   </span>
+                )}
+                {!alreadyRegistered && isReviewed && (
+                  <span className="operator-event-status-badge status-confirmed">✓ Revisado</span>
                 )}
               </div>
 
