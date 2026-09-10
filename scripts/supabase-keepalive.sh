@@ -43,6 +43,8 @@ if ! getent hosts "${HOST}" >/dev/null 2>&1; then
 fi
 echo "DNS de ${HOST}: OK."
 
+ultimo_code=""
+
 for intento in $(seq 1 "${INTENTOS}"); do
   code="$(curl -sS -o "${CUERPO}" -w '%{http_code}' -m 20 \
     "${SUPABASE_URL}/rest/v1/${TABLA}?select=*&limit=1" \
@@ -71,9 +73,12 @@ for intento in $(seq 1 "${INTENTOS}"); do
       exit 3
       ;;
     404)
+      # PGRST205: la cache de esquema de PostgREST queda vacia mientras el
+      # proyecto sale de pausa y tras cada migracion. Se ve igual que una
+      # tabla inexistente, asi que hay que reintentar antes de concluir.
+      ultimo_code=404
       head -c 300 "${CUERPO}" || true; echo
-      err "HTTP 404: la tabla '${TABLA}' no existe o no esta expuesta en la API. Ajusta KEEPALIVE_TABLE."
-      exit 3
+      echo "HTTP 404. Puede ser la cache de esquema aun sin cargar. Reintentando en ${ESPERA}s..."
       ;;
     *)
       head -c 300 "${CUERPO}" || true; echo
@@ -83,6 +88,11 @@ for intento in $(seq 1 "${INTENTOS}"); do
 
   [ "${intento}" -lt "${INTENTOS}" ] && sleep "${ESPERA}"
 done
+
+if [ "${ultimo_code}" = "404" ]; then
+  err "Tras ${INTENTOS} intentos la API sigue devolviendo 404 para la tabla '${TABLA}'. Dos causas posibles: (a) la cache de esquema de PostgREST no termino de cargar, normal si el proyecto acaba de salir de pausa o hubo una migracion, en cuyo caso basta reintentar en unos minutos; (b) la tabla no existe o no esta expuesta en la API, y hay que ajustar KEEPALIVE_TABLE."
+  exit 3
+fi
 
 err "El keep-alive no obtuvo HTTP 200 tras ${INTENTOS} intentos. El DNS resuelve, asi que el proyecto no esta pausado: revisa el estado del servicio en el dashboard."
 exit 1
