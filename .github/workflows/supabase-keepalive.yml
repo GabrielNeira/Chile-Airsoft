@@ -1,19 +1,23 @@
 name: Supabase keep-alive
 
-# El plan Free de Supabase pausa un proyecto tras ~7 dias sin trafico real
-# a la API/base de datos. Este job hace una consulta real a Postgres dos veces
-# por semana para que ChileAirsoft_QA nunca llegue a esa ventana.
+# El plan Free de Supabase pausa los proyectos con poca actividad en una
+# ventana de 7 dias. La metrica NO es la brecha entre corridas: la doc pide
+# "a few user requests to the database each day over the previous week", o sea
+# actividad DIARIA.
+#
+# La version anterior corria lunes y jueves razonando que la brecha maxima de
+# 4 dias quedaba bajo el limite de 7. No alcanzo: el 03-09-2026 el ping salio
+# OK y el 07-09-2026 el proyecto ya estaba pausado. De ahi las 3 corridas
+# diarias de abajo.
 #
 # Ademas, GitHub deshabilita los workflows programados tras 60 dias sin
-# actividad en el repositorio. Por eso el segundo paso deja un commit de
-# marca cuando el repo lleva mas de 30 dias quieto.
+# actividad en el repositorio, y atrasa o se salta corridas cuando la cola
+# esta cargada. Con 3 por dia, perder alguna es inocuo.
 
 on:
   schedule:
-    # Lunes y jueves a las 13:17 UTC (~09:17 / 10:17 en Chile).
-    # Dos corridas por semana => la brecha maxima es de 4 dias, bajo el
-    # limite de 7. Si GitHub atrasa o se salta una, la otra cubre.
-    - cron: '17 13 * * 1,4'
+    # 05:17, 13:17 y 21:17 UTC todos los dias.
+    - cron: '17 5,13,21 * * *'
   workflow_dispatch:
 
 permissions:
@@ -29,46 +33,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # La logica vive en scripts/supabase-keepalive.sh para poder probarla
+      # en local sin pasar por Actions. Codigos de salida:
+      #   2 = proyecto pausado (no resuelve el DNS) -> hay que restaurarlo a mano
+      #   3 = configuracion mala (secrets, key rotada, tabla inexistente)
+      #   1 = fallo transitorio tras agotar reintentos
       - name: Consultar la base de datos
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: |
-          set -euo pipefail
+        run: ./scripts/supabase-keepalive.sh
 
-          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]; then
-            echo "::error::Faltan los secrets SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY"
-            exit 1
-          fi
-
-          # 3 intentos: si el proyecto estaba pausado o recien despertando,
-          # la primera llamada puede fallar mientras Postgres levanta.
-          for intento in 1 2 3; do
-            code=$(curl -sS -o /tmp/keepalive.json -w '%{http_code}' -m 30 \
-              "${SUPABASE_URL}/rest/v1/events?select=*&limit=1" \
-              -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
-              -H "Accept: application/json") || code=000
-            echo "Intento ${intento}: HTTP ${code}"
-            if [ "${code}" = "200" ]; then
-              echo "Base de datos despierta y respondiendo."
-              exit 0
-            fi
-            head -c 500 /tmp/keepalive.json || true
-            echo
-            sleep 30
-          done
-
-          echo "::error::El keep-alive no obtuvo HTTP 200. Revisa si el proyecto quedo pausado en https://supabase.com/dashboard/project/grbcgggbzjsmoivsdlxf"
-          exit 1
-
+      # Corre con if: always() a proposito. Antes era un paso normal, asi que
+      # cuando el ping fallaba este no se ejecutaba y se caia justo la
+      # proteccion contra los 60 dias que apagan el cron: exactamente cuando
+      # mas se necesita.
       - name: Marcar actividad en el repositorio
+        if: always()
         run: |
           set -euo pipefail
 
-          # Los workflows programados se apagan tras 60 dias sin actividad en
-          # el repo. Commiteamos solo si el ultimo commit ya paso los 30 dias,
-          # para no llenar el historial de ruido.
+          # Commiteamos solo si el ultimo commit ya paso los 30 dias, para no
+          # llenar el historial de ruido.
           ultimo=$(git log -1 --format=%ct)
           ahora=$(date -u +%s)
           dias=$(( (ahora - ultimo) / 86400 ))
